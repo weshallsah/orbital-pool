@@ -162,9 +162,6 @@ contract OrbitalPool is ReentrancyGuard {
         // Step 1: Validate amounts are consistent with tick parameters
         _validateLiquidityAmounts(radius, planeConstant, amounts);
         
-        // Step 2: Get or create tick
-        tickId = _getOrCreateTick(radius, planeConstant);
-        
         // Step 3: Calculate LP shares to mint
         sharesReceived = _calculateLpShares(tickId, amounts);
         

@@ -5,7 +5,7 @@ contract Pool {
    
    // mapping of tick -> unique tick id
    // define total reserves, sum of squared reserves, interior ticks data, boundary ticks data 
-   // define tick struct (R,P, liquidity, reserves, total_lp_shares, lp_shares owners, status, accured fees)
+   // define tick struct (R,k, liquidity, reserves, total_lp_shares, lp_shares owners, status, accured fees)
    // define add liquidity function
         // step -1: liquidity provider provides his tick data and token amounts 
         // step -2: check if tick exists, if not create it

@@ -11,7 +11,7 @@ contract orbitalPool {
         Interior, 
         Boundary
     }
-    
+
     struct Tick {
         uint256 r; // radius of tick (radius squared = sum of squared reserves)
         uint256 k; // plane constant for the tick
@@ -37,7 +37,7 @@ contract orbitalPool {
     function addLiquidity(uint256 k , uint256[TOKENS_COUNT] memory amounts) external {
         // Step 1: Check if tick exists, if not create it. check if there exists a tick with same k
         // step 2: calculate the radius using sum of square of reserves
-        // step 3: if tick does not exist. check if k is valid and between minimal and maximal bounds. then check if amounts are greater than minimum required and x.v <= K 
+        // step 3: if tick does not exist. check if k is valid and between minimal and maximal bounds. check if x.v <= K 
         //         if tick exists, add liquidity to existing tick, check k is bounded by new R constraints. check the plane constraint and then update radius 
         // step 4: transfer tokens from liquidity provider
         // step 5: calculate how many lp shares to mint

@@ -87,12 +87,12 @@ impl OrbitalMathHelper {
         let in_idx = token_in_index.to::<usize>();
         let out_idx = token_out_index.to::<usize>();
 
-        if in_idx >= TOKENS_COUNT || out_idx >= TOKENS_COUNT || total_reserves.len() != TOKENS_COUNT {
+        if in_idx >= TOKENS_COUNT || out_idx >= TOKENS_COUNT || total_reserves.len() != TOKENS_COUNT
+        {
             return Err(MathError::InvalidArrayLength);
         }
 
-        let total_reserves_f64: Vec<f64> =
-            total_reserves.iter().map(|&r| self.to_f64(r)).collect();
+        let total_reserves_f64: Vec<f64> = total_reserves.iter().map(|&r| self.to_f64(r)).collect();
         let amount_in_f64 = self.to_f64(amount_in_after_fee);
         let initial_out_reserve_f64 = total_reserves_f64[out_idx];
 
@@ -100,14 +100,17 @@ impl OrbitalMathHelper {
         let consolidated_f64 = self.to_consolidated_f64(consolidated_data);
 
         // --- 2. CALCULATE INITIAL STATE ---
-        let initial_invariant_f64 = self._computeTorusInvariant(&consolidated_f64, &total_reserves_f64)?;
+        let initial_invariant_f64 =
+            self._computeTorusInvariant(&consolidated_f64, &total_reserves_f64)?;
 
         // --- 3. DEFINE FUNCTIONS FOR NEWTON'S METHOD ---
         // f(y) = new_invariant(y) - initial_invariant = 0
         let f = |y: f64| -> Result<f64, MathError> {
             let mut new_reserves = total_reserves_f64.clone();
             new_reserves[in_idx] += amount_in_f64;
-            if new_reserves[out_idx] < y { return Err(MathError::InsufficientLiquidity); }
+            if new_reserves[out_idx] < y {
+                return Err(MathError::InsufficientLiquidity);
+            }
             new_reserves[out_idx] -= y;
             let new_invariant = self._computeTorusInvariant(&consolidated_f64, &new_reserves)?;
             Ok(new_invariant - initial_invariant_f64)
@@ -127,16 +130,22 @@ impl OrbitalMathHelper {
 
         for i in 0..MAX_ITERATIONS {
             let derivative = f_prime(amount_out_f64)?;
-            if derivative.abs() < 1e-9 { 
-                if i == 0 { return Err(MathError::ConvergenceError); } // Failed on first step
-                break; 
+            if derivative.abs() < 1e-9 {
+                if i == 0 {
+                    return Err(MathError::ConvergenceError);
+                } // Failed on first step
+                break;
             }
             amount_out_f64 = amount_out_f64 - (f(amount_out_f64)? / derivative);
         }
 
         // --- 5. VALIDATE AND RETURN RESULT ---
-        if amount_out_f64 < 0.0 { amount_out_f64 = 0.0; }
-        if amount_out_f64 > initial_out_reserve_f64 { return Err(MathError::InsufficientLiquidity); }
+        if amount_out_f64 < 0.0 {
+            amount_out_f64 = 0.0;
+        }
+        if amount_out_f64 > initial_out_reserve_f64 {
+            return Err(MathError::InsufficientLiquidity);
+        }
 
         Ok(self.to_u256(amount_out_f64))
     }
@@ -168,7 +177,9 @@ impl OrbitalMathHelper {
         let r_squared = r_f64.powi(2);
         let diff_squared = diff.powi(2);
 
-        if r_squared <= diff_squared { return Ok(U256::ZERO); }
+        if r_squared <= diff_squared {
+            return Ok(U256::ZERO);
+        }
         let s_f64 = (r_squared - diff_squared).sqrt();
         Ok(self.to_u256(s_f64))
     }
@@ -194,7 +205,11 @@ impl OrbitalMathHelper {
         let third_component = consolidated_data.interior_consolidated_radius * SQRT5;
 
         let term1_sum = first_component - second_component - third_component;
-        let term1 = if term1_sum > 0.0 { term1_sum.powi(2) } else { 0.0 };
+        let term1 = if term1_sum > 0.0 {
+            term1_sum.powi(2)
+        } else {
+            0.0
+        };
 
         // --- 2. CALCULATE TERM 2 of the invariant ---
         // Term 2: (√(Σ(x_total,i)² - (1/n)(Σ(x_total,i))²) - r_bound)²
@@ -203,11 +218,21 @@ impl OrbitalMathHelper {
         let sum_sq_div_n = sum_total_reserves.powi(2) / (TOKENS_COUNT as f64);
 
         let inner_sqrt_val = sum_total_reserves_squared - sum_sq_div_n;
-        if inner_sqrt_val < -1e-9 { return Err(MathError::NegativeSqrt); } // Allow for small float inaccuracies
-        let sqrt_term = if inner_sqrt_val <= 0.0 { 0.0 } else { inner_sqrt_val.sqrt() };
+        if inner_sqrt_val < -1e-9 {
+            return Err(MathError::NegativeSqrt);
+        } // Allow for small float inaccuracies
+        let sqrt_term = if inner_sqrt_val <= 0.0 {
+            0.0
+        } else {
+            inner_sqrt_val.sqrt()
+        };
 
         let term2_component = sqrt_term - consolidated_data.boundary_consolidated_radius;
-        let term2 = if term2_component > 0.0 { term2_component.powi(2) } else { 0.0 };
+        let term2 = if term2_component > 0.0 {
+            term2_component.powi(2)
+        } else {
+            0.0
+        };
 
         Ok(term1 + term2)
     }
@@ -232,4 +257,3 @@ impl OrbitalMathHelper {
         U256::from((value * PRECISION).round() as u128)
     }
 }
-

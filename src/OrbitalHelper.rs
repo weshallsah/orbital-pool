@@ -14,8 +14,8 @@ use stylus_sdk::{alloy_primitives::U256, prelude::*, storage::StorageU256};
 // ===================================================================
 
 const TOKENS_COUNT: usize = 5;
-const PRECISION: U256 = U256::from_limbs([1000000000000000000_u64, 0, 0, 0]);
-const SQRT5_SCALED: U256 = U256::from_limbs([2236067977499790000_u64, 0, 0, 0]);
+const PRECISION: U256 = U256::from_limbs([1000000000000000_u64, 0, 0, 0]); // 1e15 to match Solidity
+const SQRT5_SCALED: U256 = U256::from_limbs([2236067977499790_u64, 0, 0, 0]); // Match Solidity scaling
 const TOLERANCE_FACTOR: U256 = U256::from_limbs([100000000_u64, 0, 0, 0]);
 const EPSILON_SCALED: U256 = U256::from_limbs([1000000000000_u64, 0, 0, 0]);
 const TINY_SCALED: U256 = U256::from_limbs([1000000_u64, 0, 0, 0]);

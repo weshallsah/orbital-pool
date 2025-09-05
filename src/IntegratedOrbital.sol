@@ -4,96 +4,189 @@ pragma solidity ^0.8.30;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// Library to hold the struct for calling the math helper
-library Helper {
-    struct ConsolidatedData {
-        uint256 sum_interior_reserves;
-        uint256 interior_consolidated_radius;
-        uint256 boundary_consolidated_radius;
-        uint256 boundary_total_k_bound;
-    }
-}
+// ===================================================================
+//
+//                        INTERFACES AND TYPES
+//
+// ===================================================================
 
-// Interface to interact with the deployed Stylus Math Helper contract
+/**
+ * @title IOrbitalMathHelper
+ * @notice Interface for interacting with the deployed Stylus Math Helper contract
+ * @dev Provides mathematical computations for the Orbital AMM including torus invariant solving
+ */
 interface IOrbitalMathHelper {
+    /**
+     * @notice Solves the torus invariant to calculate swap output amount
+     * @param sum_interior_reserves Sum of interior reserves from consolidated data
+     * @param interior_consolidated_radius Interior consolidated radius
+     * @param boundary_consolidated_radius Boundary consolidated radius
+     * @param boundary_total_k_bound Boundary total k bound
+     * @param total_reserves Current total reserves across all ticks
+     * @param token_in_index Index of the input token (0-4)
+     * @param token_out_index Index of the output token (0-4)
+     * @param amount_in_after_fee Input amount after fee deduction
+     * @return The computed output amount
+     */
     function solveTorusInvariant(
-        Helper.ConsolidatedData calldata consolidated_data,
-        uint256[] calldata total_reserves,
+        uint256 sum_interior_reserves,
+        uint256 interior_consolidated_radius,
+        uint256 boundary_consolidated_radius,
+        uint256 boundary_total_k_bound,
+        uint256[] memory total_reserves,
         uint256 token_in_index,
         uint256 token_out_index,
         uint256 amount_in_after_fee
     ) external view returns (uint256);
 
+    /**
+     * @notice Calculates the radius of a tick from its reserves
+     * @param reserves Array of token reserves for the tick
+     * @return The calculated radius
+     */
     function calculateRadius(
-        uint256[] calldata reserves
+        uint256[] memory reserves
     ) external view returns (uint256);
 
+    /**
+     * @notice Calculates the s value for a boundary tick
+     * @param r The radius of the tick
+     * @param k The plane constant for the tick
+     * @return The calculated s value
+     */
     function calculateBoundaryTickS(
         uint256 r,
         uint256 k
     ) external view returns (uint256);
 }
 
-contract orbitalPool {
+// ===================================================================
+//
+//                        MAIN CONTRACT
+//
+// ===================================================================
+
+/**
+ * @title OrbitalPool
+ * @notice A 5-token AMM implementing the Orbital mathematical model
+ * @dev Uses a torus-based invariant for price discovery and liquidity management
+ * @author Orbital Protocol
+ */
+contract OrbitalPool {
     using SafeERC20 for IERC20;
 
-    uint256 public constant TOKENS_COUNT = 5; // 5 tokens pegged to USD
-    uint256 private constant SQRT5_SCALED = 2236067977499790; // sqrt(5) * 1e15 for precision
+    // ===================================================================
+    //
+    //                        CONSTANTS AND STATE
+    //
+    // ===================================================================
+
+    uint256 public constant TOKENS_COUNT = 5;
+
+    uint256 private constant SQRT5_SCALED = 2236067977499790;
+
     uint256 private constant PRECISION = 1e15;
 
-    // Token addresses for the 5 USD-pegged tokens
     IERC20[TOKENS_COUNT] public tokens;
 
-    // Address of the deployed Stylus math helper contract
     IOrbitalMathHelper public mathHelper;
 
-    enum TickStatus {
-        Interior,
-        Boundary
-    }
+    uint256 public swapFee = 3000;
 
-    struct Tick {
-        uint256 r; // radius of tick
-        uint256 k; // plane constant for the tick
-        uint256 liquidity; // total liquidity in the tick
-        uint256[TOKENS_COUNT] reserves; // reserves of each token in the tick (x vector)
-        uint256 totalLpShares; // total LP shares issued for this tick
-        mapping(address => uint256) lpShares; // mapping of LP address to their shares
-        TickStatus status; // status of the tick (Interior or Boundary)
-        uint256 accruedFees; // total fees accrued to this tick
-    }
-
-    struct ConsolidatedTickData {
-        uint256[TOKENS_COUNT] totalReserves; // Sum of reserves across consolidated ticks
-        uint256[TOKENS_COUNT] sumSquaredReserves; // Sum of squared reserves
-        uint256 totalLiquidity; // Combined liquidity
-        uint256 tickCount; // Number of ticks in this consolidation
-        uint256 consolidatedRadius; // Combined radius for the consolidated tick
-        uint256 totalKBound; // Sum of k values for boundary ticks
-    }
-
-    // Fee configuration
-    uint256 public swapFee = 3000; // 0.3% in basis points
     uint256 public constant FEE_DENOMINATOR = 1000000;
-    mapping(uint256 => Tick) public ticks; // k -> Tick
 
-    // Track active ticks for iteration
     uint256[] public activeTicks;
+
     mapping(uint256 => bool) public isActiveTick;
 
-    // Events
+    // ===================================================================
+    //
+    //                        ENUMS AND STRUCTS
+    //
+    // ===================================================================
+
+    /**
+     * @notice Status of a tick in the pool
+     */
+    enum TickStatus {
+        Interior, /// @dev Tick is in the interior region
+        Boundary /// @dev Tick is on the boundary
+    }
+
+    /**
+     * @notice Represents a liquidity tick in the pool
+     * @dev Each tick has its own reserves and LP shares
+     */
+    struct Tick {
+        uint256 r; /// @dev Radius of the tick
+        uint256 k; /// @dev Plane constant for the tick
+        uint256 liquidity; /// @dev Total liquidity in the tick
+        uint256[TOKENS_COUNT] reserves; /// @dev Reserves of each token
+        uint256 totalLpShares; /// @dev Total LP shares issued
+        mapping(address => uint256) lpShares; /// @dev LP shares per address
+        TickStatus status; /// @dev Current status of the tick
+        uint256 accruedFees; /// @dev Total fees accrued
+    }
+
+    /**
+     * @notice Consolidated data for interior and boundary ticks
+     * @dev Used for efficient swap calculations
+     */
+    struct ConsolidatedTickData {
+        uint256[TOKENS_COUNT] totalReserves; /// @dev Sum of reserves across ticks
+        uint256[TOKENS_COUNT] sumSquaredReserves; /// @dev Sum of squared reserves
+        uint256 totalLiquidity; /// @dev Combined liquidity
+        uint256 tickCount; /// @dev Number of ticks
+        uint256 consolidatedRadius; /// @dev Combined radius
+        uint256 totalKBound; /// @dev Sum of k values for boundary ticks
+    }
+
+    /// @notice Mapping of tick identifier to Tick struct
+    mapping(uint256 => Tick) public ticks;
+
+    // ===================================================================
+    //
+    //                        EVENTS
+    //
+    // ===================================================================
+
+    /**
+     * @notice Emitted when liquidity is added to a tick
+     * @param provider Address of the liquidity provider
+     * @param k Tick identifier
+     * @param amounts Amounts of each token added
+     * @param lpShares LP shares minted
+     */
     event LiquidityAdded(
         address indexed provider,
         uint256 k,
         uint256[TOKENS_COUNT] amounts,
         uint256 lpShares
     );
+
+    /**
+     * @notice Emitted when liquidity is removed from a tick
+     * @param provider Address of the liquidity provider
+     * @param k Tick identifier
+     * @param amounts Amounts of each token removed
+     * @param lpShares LP shares burned
+     */
     event LiquidityRemoved(
         address indexed provider,
         uint256 k,
         uint256[TOKENS_COUNT] amounts,
         uint256 lpShares
     );
+
+    /**
+     * @notice Emitted when a swap is executed
+     * @param trader Address of the trader
+     * @param tokenIn Index of input token
+     * @param tokenOut Index of output token
+     * @param amountIn Input amount
+     * @param amountOut Output amount
+     * @param fee Fee charged
+     */
     event Swap(
         address indexed trader,
         uint256 tokenIn,
@@ -102,20 +195,45 @@ contract orbitalPool {
         uint256 amountOut,
         uint256 fee
     );
+
+    /**
+     * @notice Emitted when a tick's status changes
+     * @param k Tick identifier
+     * @param oldStatus Previous status
+     * @param newStatus New status
+     */
     event TickStatusChanged(
         uint256 k,
         TickStatus oldStatus,
         TickStatus newStatus
     );
 
-    // Errors
+    // ===================================================================
+    //
+    //                        ERRORS
+    //
+    // ===================================================================
+
     error InvalidKValue();
     error InvalidAmounts();
     error TickAlreadyExists();
     error InsufficientLiquidity();
     error InvalidTokenIndex();
     error SlippageExceeded();
+    error MathHelperError(string reason);
+    error NumericalError();
 
+    // ===================================================================
+    //
+    //                        CONSTRUCTOR
+    //
+    // ===================================================================
+
+    /**
+     * @notice Initializes the Orbital pool
+     * @param _tokens Array of 5 ERC20 tokens for the pool
+     * @param _mathHelperAddress Address of the Stylus math helper contract
+     */
     constructor(
         IERC20[TOKENS_COUNT] memory _tokens,
         address _mathHelperAddress
@@ -124,6 +242,102 @@ contract orbitalPool {
         mathHelper = IOrbitalMathHelper(_mathHelperAddress);
     }
 
+    // ===================================================================
+    //
+    //                        PUBLIC VIEW FUNCTIONS
+    //
+    // ===================================================================
+
+    /**
+     * @notice Gets LP shares for a user in a specific tick
+     * @param k Tick identifier
+     * @param user User address
+     * @return LP shares owned by the user
+     */
+    function getLpShares(
+        uint256 k,
+        address user
+    ) external view returns (uint256) {
+        return ticks[k].lpShares[user];
+    }
+
+    /**
+     * @notice Gets total LP shares for a tick
+     * @param k Tick identifier
+     * @return Total LP shares for the tick
+     */
+    function getTotalLpShares(uint256 k) external view returns (uint256) {
+        return ticks[k].totalLpShares;
+    }
+
+    /**
+     * @notice Gets accrued fees for a tick
+     * @param k Tick identifier
+     * @return Total fees accrued to the tick
+     */
+    function getAccruedFees(uint256 k) external view returns (uint256) {
+        return ticks[k].accruedFees;
+    }
+
+    /**
+     * @notice Gets the radius of a tick
+     * @param k Tick identifier
+     * @return Radius of the tick
+     */
+    function getTickRadius(uint256 k) external view returns (uint256) {
+        return ticks[k].r;
+    }
+
+    /**
+     * @notice Gets the liquidity of a tick
+     * @param k Tick identifier
+     * @return Liquidity of the tick
+     */
+    function getTickLiquidity(uint256 k) external view returns (uint256) {
+        return ticks[k].liquidity;
+    }
+
+    /**
+     * @notice Gets the status of a tick
+     * @param k Tick identifier
+     * @return Current status of the tick
+     */
+    function getTickStatus(uint256 k) external view returns (TickStatus) {
+        return ticks[k].status;
+    }
+
+    /**
+     * @notice Gets total reserves across all active ticks
+     * @return totalReserves Array of total reserves for each token
+     */
+    function _getTotalReserves()
+        public
+        view
+        returns (uint256[TOKENS_COUNT] memory totalReserves)
+    {
+        for (uint256 i = 0; i < activeTicks.length; i++) {
+            uint256 k = activeTicks[i];
+            Tick storage tick = ticks[k];
+            if (tick.r > 0) {
+                for (uint256 j = 0; j < TOKENS_COUNT; j++) {
+                    totalReserves[j] += tick.reserves[j];
+                }
+            }
+        }
+    }
+
+    // ===================================================================
+    //
+    //                        LIQUIDITY MANAGEMENT
+    //
+    // ===================================================================
+
+    /**
+     * @notice Adds liquidity to a tick
+     * @param k Tick identifier (must be valid for the resulting radius)
+     * @param amounts Array of token amounts to add (all must be > 0)
+     * @dev Creates new tick if it doesn't exist, updates existing tick otherwise
+     */
     function addLiquidity(
         uint256 k,
         uint256[TOKENS_COUNT] memory amounts
@@ -136,7 +350,6 @@ contract orbitalPool {
         uint256 previousTotalLpShares = tickExists ? ticks[k].totalLpShares : 0;
 
         uint256[TOKENS_COUNT] memory reservesForRadiusCalc;
-        // !!
         if (!tickExists) {
             reservesForRadiusCalc = amounts;
         } else {
@@ -149,7 +362,15 @@ contract orbitalPool {
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             reservesVec[i] = reservesForRadiusCalc[i];
         }
-        uint256 newRadius = mathHelper.calculateRadius(reservesVec);
+
+        uint256 newRadius;
+        try mathHelper.calculateRadius(reservesVec) returns (uint256 r) {
+            newRadius = r;
+        } catch Error(string memory reason) {
+            revert MathHelperError(reason);
+        } catch {
+            revert NumericalError();
+        }
 
         if (!_isValidK(k, newRadius)) revert InvalidKValue();
         uint256 reserveConstraint = (newRadius * PRECISION) / SQRT5_SCALED;
@@ -171,7 +392,7 @@ contract orbitalPool {
             }
         } else {
             ticks[k].r = newRadius;
-            ticks[k].reserves = reservesForRadiusCalc; // Use the combined reserves
+            ticks[k].reserves = reservesForRadiusCalc;
             ticks[k].liquidity = newRadius * newRadius;
             ticks[k].status = newStatus;
         }
@@ -208,6 +429,12 @@ contract orbitalPool {
         emit LiquidityAdded(msg.sender, k, amounts, lpShares);
     }
 
+    /**
+     * @notice Removes liquidity from a tick
+     * @param k Tick identifier
+     * @param lpSharesToRemove Number of LP shares to remove
+     * @dev Proportionally removes reserves and updates tick state
+     */
     function removeLiquidity(uint256 k, uint256 lpSharesToRemove) external {
         if (k == 0) revert InvalidKValue();
         if (lpSharesToRemove == 0) revert InvalidAmounts();
@@ -237,7 +464,15 @@ contract orbitalPool {
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             reservesVec[i] = newReserves[i];
         }
-        uint256 newRadius = mathHelper.calculateRadius(reservesVec);
+
+        uint256 newRadius;
+        try mathHelper.calculateRadius(reservesVec) returns (uint256 r) {
+            newRadius = r;
+        } catch Error(string memory reason) {
+            revert MathHelperError(reason);
+        } catch {
+            revert NumericalError();
+        }
 
         tick.r = newRadius;
         tick.reserves = newReserves;
@@ -261,6 +496,21 @@ contract orbitalPool {
         emit LiquidityRemoved(msg.sender, k, amountsToReturn, lpSharesToRemove);
     }
 
+    // ===================================================================
+    //
+    //                        SWAP FUNCTIONALITY
+    //
+    // ===================================================================
+
+    /**
+     * @notice Executes a token swap
+     * @param tokenIn Index of input token (0-4)
+     * @param tokenOut Index of output token (0-4)
+     * @param amountIn Amount of input tokens to swap
+     * @param minAmountOut Minimum amount of output tokens expected
+     * @return amountOut Actual amount of output tokens received
+     * @dev Uses torus invariant to calculate output amount and updates all tick reserves
+     */
     function swap(
         uint256 tokenIn,
         uint256 tokenOut,
@@ -279,7 +529,6 @@ contract orbitalPool {
 
         uint256[TOKENS_COUNT] memory totalReserves = _getTotalReserves();
 
-        // MODIFIED: Offload swap calculation to the Stylus contract
         amountOut = _calculateSwapOutput(
             totalReserves,
             tokenIn,
@@ -311,6 +560,18 @@ contract orbitalPool {
         );
     }
 
+    // ===================================================================
+    //
+    //                        INTERNAL CALCULATIONS
+    //
+    // ===================================================================
+
+    /**
+     * @notice Gets consolidated data for interior and boundary ticks
+     * @return interiorData Consolidated data for interior ticks
+     * @return boundaryData Consolidated data for boundary ticks
+     * @dev Used for efficient swap calculations by consolidating similar ticks
+     */
     function _getConsolidatedTickData()
         internal
         view
@@ -333,7 +594,6 @@ contract orbitalPool {
                     interiorData.totalReserves[j] += tick.reserves[j];
                 }
             } else {
-                // MODIFIED: Offload s calculation to Stylus contract
                 uint256 s = mathHelper.calculateBoundaryTickS(tick.r, tick.k);
                 boundaryData.consolidatedRadius += s;
                 boundaryData.totalLiquidity += tick.liquidity;
@@ -346,14 +606,21 @@ contract orbitalPool {
         }
     }
 
-    // MODIFIED: This function now calls the Stylus helper instead of doing the calculation itself
+    /**
+     * @notice Calculates swap output using torus invariant
+     * @param reserves Current total reserves
+     * @param tokenIn Index of input token
+     * @param tokenOut Index of output token
+     * @param amountIn Input amount after fees
+     * @return Output amount calculated by solving torus invariant
+     * @dev Delegates to Stylus math helper for complex calculations
+     */
     function _calculateSwapOutput(
         uint256[TOKENS_COUNT] memory reserves,
         uint256 tokenIn,
         uint256 tokenOut,
         uint256 amountIn
     ) internal view returns (uint256) {
-        // Step 1: Get consolidated data
         (
             ConsolidatedTickData memory interiorData,
             ConsolidatedTickData memory boundaryData
@@ -364,43 +631,92 @@ contract orbitalPool {
             sumInteriorReserves += interiorData.totalReserves[i];
         }
 
-        // Step 2: Populate the struct to pass to the helper contract
-        Helper.ConsolidatedData memory dataForHelper = Helper.ConsolidatedData({
-            sum_interior_reserves: sumInteriorReserves,
-            interior_consolidated_radius: interiorData.consolidatedRadius,
-            boundary_consolidated_radius: boundaryData.consolidatedRadius,
-            boundary_total_k_bound: boundaryData.totalKBound
-        });
-
-        // Step 3: Convert fixed-size array to dynamic array for the call
         uint256[] memory reservesVec = new uint256[](TOKENS_COUNT);
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             reservesVec[i] = reserves[i];
         }
 
-        // Step 4: Call the Stylus contract to perform the heavy computation
-        return
+        try
             mathHelper.solveTorusInvariant(
-                dataForHelper,
+                sumInteriorReserves,
+                interiorData.consolidatedRadius,
+                boundaryData.consolidatedRadius,
+                boundaryData.totalKBound,
                 reservesVec,
                 tokenIn,
                 tokenOut,
                 amountIn
-            );
+            )
+        returns (uint256 amount) {
+            if (amount == 0) revert InsufficientLiquidity();
+            if (amount >= reserves[tokenOut]) revert InsufficientLiquidity();
+            return amount;
+        } catch Error(string memory reason) {
+            revert MathHelperError(reason);
+        } catch {
+            revert NumericalError();
+        }
     }
 
-    // REMOVED: _computeTorusInvariant is no longer needed in Solidity.
-    // REMOVED: _calculateBoundaryTickS is no longer needed in Solidity.
-    // REMOVED: _calculateRadiusSquared is no longer needed in Solidity.
-    // REMOVED: _sqrt is no longer needed in Solidity, unless used elsewhere.
-
-    // ... The rest of your functions (_isValidK, _calculateAlpha, etc.) remain unchanged ...
-    // Note: If any of them use _sqrt, you'll need to keep it or replace its usage.
-    // For now, I'm assuming they don't, to show a clean separation.
-    // If you need _sqrt for other functions, simply uncomment it.
+    // ===================================================================
+    //
+    //                        UTILITY FUNCTIONS
+    //
+    // ===================================================================
 
     /**
-     * @dev Calculate square root using Babylonian method (kept in case it's needed by other funcs)
+     * @notice Validates that all amounts are greater than zero
+     * @param amounts Array of token amounts to validate
+     * @return True if all amounts are valid, false otherwise
+     */
+    function _validateAmounts(
+        uint256[TOKENS_COUNT] memory amounts
+    ) internal pure returns (bool) {
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            if (amounts[i] == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @notice Validates if k value is valid for given radius
+     * @param k Tick identifier to validate
+     * @param radius Radius to validate against
+     * @return True if k is valid for the radius, false otherwise
+     * @dev Ensures k falls within the valid range for the given radius
+     */
+    function _isValidK(uint256 k, uint256 radius) internal pure returns (bool) {
+        if (radius == 0) return false;
+        uint256 sqrt5MinusOne = SQRT5_SCALED - PRECISION;
+        uint256 lowerBound = (sqrt5MinusOne * radius) / PRECISION;
+        uint256 upperBound = (4 * radius * PRECISION) / SQRT5_SCALED;
+        if (k < lowerBound || k > upperBound) return false;
+        uint256 reserveConstraint = (radius * PRECISION) / SQRT5_SCALED;
+        return k >= reserveConstraint;
+    }
+
+    /**
+     * @notice Calculates the average (alpha) of reserves
+     * @param reserves Array of token reserves
+     * @return Average of all reserves
+     */
+    function _calculateAlpha(
+        uint256[TOKENS_COUNT] memory reserves
+    ) internal pure returns (uint256) {
+        uint256 sum = 0;
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            sum += reserves[i];
+        }
+        return sum / TOKENS_COUNT;
+    }
+
+    /**
+     * @notice Calculates square root using Babylonian method
+     * @param x Number to calculate square root of
+     * @return Square root of x
+     * @dev Kept for potential future use by other functions
      */
     function _sqrt(uint256 x) internal pure returns (uint256) {
         if (x == 0) return 0;
@@ -413,53 +729,17 @@ contract orbitalPool {
         return y;
     }
 
-    function _getTotalReserves()
-        public
-        view
-        returns (uint256[TOKENS_COUNT] memory totalReserves)
-    {
-        for (uint256 i = 0; i < activeTicks.length; i++) {
-            uint256 k = activeTicks[i];
-            Tick storage tick = ticks[k];
-            if (tick.r > 0) {
-                for (uint256 j = 0; j < TOKENS_COUNT; j++) {
-                    totalReserves[j] += tick.reserves[j];
-                }
-            }
-        }
-    }
+    // ===================================================================
+    //
+    //                        TICK MANAGEMENT
+    //
+    // ===================================================================
 
-    function _validateAmounts(
-        uint256[TOKENS_COUNT] memory amounts
-    ) internal pure returns (bool) {
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            if (amounts[i] == 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    function _isValidK(uint256 k, uint256 radius) internal pure returns (bool) {
-        if (radius == 0) return false;
-        uint256 sqrt5MinusOne = SQRT5_SCALED - PRECISION;
-        uint256 lowerBound = (sqrt5MinusOne * radius) / PRECISION;
-        uint256 upperBound = (4 * radius * PRECISION) / SQRT5_SCALED;
-        if (k < lowerBound || k > upperBound) return false;
-        uint256 reserveConstraint = (radius * PRECISION) / SQRT5_SCALED;
-        return k >= reserveConstraint;
-    }
-
-    function _calculateAlpha(
-        uint256[TOKENS_COUNT] memory reserves
-    ) internal pure returns (uint256) {
-        uint256 sum = 0;
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            sum += reserves[i];
-        }
-        return sum / TOKENS_COUNT;
-    }
-
+    /**
+     * @notice Updates tick reserves and handles status crossings
+     * @param newTotalReserves New total reserves after swap
+     * @dev Updates individual tick reserves and checks for status changes
+     */
     function _updateTickReservesWithCrossings(
         uint256[TOKENS_COUNT] memory newTotalReserves
     ) internal {
@@ -482,6 +762,11 @@ contract orbitalPool {
         _updateIndividualTickReserves(newTotalReserves);
     }
 
+    /**
+     * @notice Updates individual tick reserves based on new totals
+     * @param newTotalReserves New total reserves across all ticks
+     * @dev Distributes reserves proportionally among interior ticks, projects boundary ticks
+     */
     function _updateIndividualTickReserves(
         uint256[TOKENS_COUNT] memory newTotalReserves
     ) internal {
@@ -508,6 +793,11 @@ contract orbitalPool {
         }
     }
 
+    /**
+     * @notice Projects a boundary tick to its boundary constraint
+     * @param k Tick identifier
+     * @dev Adjusts tick reserves to maintain boundary constraint
+     */
     function _projectTickToBoundary(
         uint256 k,
         uint256[TOKENS_COUNT] memory
@@ -523,6 +813,11 @@ contract orbitalPool {
         }
     }
 
+    /**
+     * @notice Distributes swap fees among all active ticks
+     * @param feeAmount Total fee amount to distribute
+     * @dev Distributes fees proportionally based on tick liquidity
+     */
     function _distributeFees(uint256 feeAmount, uint256) internal {
         uint256 totalLiquidity = 0;
         for (uint256 i = 0; i < activeTicks.length; i++) {

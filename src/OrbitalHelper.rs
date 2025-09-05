@@ -20,6 +20,12 @@ const TOLERANCE_FACTOR: U256 = U256::from_limbs([100000000_u64, 0, 0, 0]);
 const EPSILON_SCALED: U256 = U256::from_limbs([1000000000000_u64, 0, 0, 0]);
 const TINY_SCALED: U256 = U256::from_limbs([1000000_u64, 0, 0, 0]);
 
+// Additional mathematical constants for robustness
+const MAX_SAFE_MULTIPLY: U256 = U256::from_limbs([0xFFFFFFFFFFFFFFFF_u64, 0xFFFFFFFFFFFFFFFF_u64, 0, 0]); // 2^128 - 1
+const MAX_ITERATIONS_SQRT: usize = 64; // Reduced from 256 for efficiency
+const MAX_NEWTON_ITERATIONS: usize = 100; // Increased for better convergence
+const CONVERGENCE_THRESHOLD: U256 = U256::from_limbs([1000_u64, 0, 0, 0]); // 1e-12 in scaled terms
+
 #[storage]
 #[entrypoint]
 pub struct OrbitalMathHelper {
@@ -44,21 +50,7 @@ pub enum MathError {
 #[public]
 impl OrbitalMathHelper {
     /// @notice Calculates the output amount for a swap by solving the torus invariant
-    /// @dev Implements a robust version of Newton's method for root-finding using fixed-point arithmetic
-    /// Solves the Orbital AMM torus invariant to determine swap output amount
-    ///
-    /// This implements the core equation from the Orbital whitepaper:
-    /// (1/√n * Σ(x_int,i) - k_bound - r_int * √n)² + (√(Σ(x_total,i)² - (1/n)(Σ(x_total,i))²) - r_bound)² = C
-    ///
-    /// @param sum_interior_reserves Sum of interior reserves from consolidated data
-    /// @param interior_consolidated_radius Interior consolidated radius
-    /// @param boundary_consolidated_radius Boundary consolidated radius  
-    /// @param boundary_total_k_bound Boundary total k bound
-    /// @param total_reserves Current total reserves across all ticks
-    /// @param token_in_index Index of the input token (0-4)
-    /// @param token_out_index Index of the output token (0-4)
-    /// @param amount_in_after_fee Input amount after fee deduction
-    /// @return The computed output amount (0 if error)
+    /// @dev Implements a robust version of Newton's method with comprehensive error handling
     pub fn solveTorusInvariant(
         &self,
         sum_interior_reserves: U256,
@@ -73,34 +65,19 @@ impl OrbitalMathHelper {
         let token_in_idx = token_in_index.to::<usize>();
         let token_out_idx = token_out_index.to::<usize>();
 
-        // --- 1. Comprehensive input validation ---
-        if token_in_idx >= TOKENS_COUNT || token_out_idx >= TOKENS_COUNT {
-            return U256::ZERO;
-        }
-        if token_in_idx == token_out_idx {
-            return U256::ZERO;
-        }
-        if total_reserves.len() != TOKENS_COUNT {
-            return U256::ZERO;
-        }
-        if amount_in_after_fee.is_zero() {
-            return U256::ZERO;
-        }
-
-        // Additional validations for liquidity
-        if sum_interior_reserves.is_zero() && boundary_consolidated_radius.is_zero() {
+        // Enhanced input validation
+        if !self.validate_inputs(
+            &total_reserves,
+            token_in_idx,
+            token_out_idx,
+            amount_in_after_fee,
+            sum_interior_reserves,
+            boundary_consolidated_radius,
+        ) {
             return U256::ZERO;
         }
 
-        // Check for overflow risks - use a reasonable max value
-        let max_safe_reserve = U256::from(2).pow(U256::from(200)); // Leave room for calculations
-        for reserve in total_reserves.iter() {
-            if *reserve >= max_safe_reserve {
-                return U256::ZERO;
-            }
-        }
-
-        // --- 2. Calculate initial invariant using fixed-point arithmetic ---
+        // Calculate initial invariant with error handling
         let initial_invariant = match self.compute_torus_invariant_fixed(
             sum_interior_reserves,
             interior_consolidated_radius,
@@ -108,190 +85,37 @@ impl OrbitalMathHelper {
             boundary_total_k_bound,
             &total_reserves,
         ) {
-            Ok(inv) => inv,
-            Err(_) => return U256::ZERO,
+            Ok(inv) if inv > U256::ZERO => inv,
+            _ => return U256::ZERO,
         };
 
-        if initial_invariant.is_zero() {
-            return U256::ZERO;
+        // Enhanced initial guess with bounds checking
+        let (r_in, r_out) = (total_reserves[token_in_idx], total_reserves[token_out_idx]);
+        
+        let initial_guess = match self.calculate_initial_guess(amount_in_after_fee, r_in, r_out) {
+            Some(guess) => guess,
+            None => return U256::ZERO,
+        };
+
+        // Robust Newton's method with multiple fallback strategies
+        match self.solve_newton_with_fallbacks(
+            initial_guess,
+            &total_reserves,
+            token_in_idx,
+            token_out_idx,
+            amount_in_after_fee,
+            sum_interior_reserves,
+            interior_consolidated_radius,
+            boundary_consolidated_radius,
+            boundary_total_k_bound,
+            initial_invariant,
+            r_out,
+        ) {
+            Some(result) => result,
+            None => self.fallback_constant_product(amount_in_after_fee, r_in, r_out),
         }
-
-        // --- 3. Initial guess using constant product approximation (fixed-point) ---
-        let r_in = total_reserves[token_in_idx];
-        let r_out = total_reserves[token_out_idx];
-
-        if r_in.is_zero() || r_out.is_zero() {
-            return U256::ZERO;
-        }
-
-        // y = (amount_in * r_out) / (r_in + amount_in)
-        let numerator = self.mul_fixed(amount_in_after_fee, r_out);
-        let denominator = r_in.saturating_add(amount_in_after_fee);
-
-        if denominator.is_zero() {
-            return U256::ZERO;
-        }
-
-        let mut y = self.div_fixed(numerator, denominator);
-
-        // Boundary checks for the initial guess
-        if y.is_zero() {
-            y = self.div_fixed(amount_in_after_fee, U256::from(10));
-        }
-        if y >= r_out {
-            y = self.div_fixed(r_out, U256::from(2));
-        }
-
-        // --- 4. Newton's Method Iteration with Trust Region (fixed-point) ---
-        const MAX_ITER: usize = 50;
-        let base_tol = self.div_fixed(initial_invariant, TOLERANCE_FACTOR);
-        let mut trust_radius = self.div_fixed(y, U256::from(2));
-
-        for iter in 0..MAX_ITER {
-            let tol = if iter < 10 {
-                self.mul_fixed(base_tol, U256::from(10))
-            } else {
-                base_tol
-            };
-
-            // Calculate f(y) = new_invariant - initial_invariant
-            let f_y = match self.evaluate_function_at_y(
-                y,
-                &total_reserves,
-                token_in_idx,
-                token_out_idx,
-                amount_in_after_fee,
-                sum_interior_reserves,
-                interior_consolidated_radius,
-                boundary_consolidated_radius,
-                boundary_total_k_bound,
-                initial_invariant,
-            ) {
-                Ok(val) => val,
-                Err(_) => return U256::ZERO,
-            };
-
-            // Check convergence
-            if self.abs_fixed(f_y) <= tol {
-                break;
-            }
-
-            // Calculate numerical derivative
-            let eps = self.max_fixed(
-                self.mul_fixed(self.abs_fixed(y), EPSILON_SCALED),
-                TINY_SCALED,
-            );
-
-            let y_plus = y.saturating_add(eps);
-            let y_minus = if y >= eps {
-                y.saturating_sub(eps)
-            } else {
-                U256::ZERO
-            };
-
-            let f_plus = match self.evaluate_function_at_y(
-                y_plus,
-                &total_reserves,
-                token_in_idx,
-                token_out_idx,
-                amount_in_after_fee,
-                sum_interior_reserves,
-                interior_consolidated_radius,
-                boundary_consolidated_radius,
-                boundary_total_k_bound,
-                initial_invariant,
-            ) {
-                Ok(val) => val,
-                Err(_) => return U256::ZERO,
-            };
-
-            let f_minus = match self.evaluate_function_at_y(
-                y_minus,
-                &total_reserves,
-                token_in_idx,
-                token_out_idx,
-                amount_in_after_fee,
-                sum_interior_reserves,
-                interior_consolidated_radius,
-                boundary_consolidated_radius,
-                boundary_total_k_bound,
-                initial_invariant,
-            ) {
-                Ok(val) => val,
-                Err(_) => return U256::ZERO,
-            };
-
-            // deriv = (f_plus - f_minus) / (2 * eps)
-            let f_diff = if f_plus >= f_minus {
-                f_plus.saturating_sub(f_minus)
-            } else {
-                f_minus.saturating_sub(f_plus)
-            };
-            let two_eps = eps.saturating_mul(U256::from(2));
-            if two_eps.is_zero() {
-                break;
-            }
-            let deriv = self.div_fixed(f_diff, two_eps);
-
-            // Check if derivative is too small
-            let min_deriv = self.div_fixed(tol, U256::from(10000));
-            if deriv < min_deriv {
-                // Use gradient descent step
-                let grad_step = self.mul_fixed(self.sign_fixed(f_y), trust_radius);
-                y = if f_y >= PRECISION {
-                    // f_y is positive, subtract grad_step
-                    if y >= grad_step {
-                        y.saturating_sub(grad_step)
-                    } else {
-                        U256::ZERO
-                    }
-                } else {
-                    // f_y is negative, add grad_step
-                    y.saturating_add(grad_step)
-                };
-                trust_radius = self.mul_fixed(trust_radius, U256::from(2));
-            } else {
-                // Newton step
-                let newton_step = self.div_fixed(self.abs_fixed(f_y), deriv);
-                let clamped_step = self.min_fixed(newton_step, trust_radius);
-
-                if f_y >= PRECISION {
-                    // f_y is positive, subtract step
-                    y = if y >= clamped_step {
-                        y.saturating_sub(clamped_step)
-                    } else {
-                        U256::ZERO
-                    };
-                } else {
-                    // f_y is negative, add step
-                    y = y.saturating_add(clamped_step);
-                }
-                trust_radius = self.mul_fixed(trust_radius, U256::from(11)) / U256::from(10);
-            }
-
-            // Enforce feasibility constraints
-            if y.is_zero() {
-                y = TINY_SCALED;
-            }
-            if y >= r_out {
-                y = self.mul_fixed(r_out, U256::from(95)) / U256::from(100);
-            }
-        }
-
-        // --- 5. Final Validation ---
-        if y.is_zero() || y >= r_out {
-            // Fallback to simple constant product with safety margin
-            let fallback_num = self.mul_fixed(amount_in_after_fee, r_out);
-            let fallback_den = r_in.saturating_add(amount_in_after_fee);
-            if fallback_den.is_zero() {
-                return U256::ZERO;
-            }
-            let fallback = self.div_fixed(fallback_num, fallback_den);
-            return self.mul_fixed(fallback, U256::from(98)) / U256::from(100);
-        }
-
-        y
     }
+
     /// @notice Calculates the radius (or liquidity) of a tick from its reserves using fixed-point arithmetic
     /// @dev Uses the formula: radius = sqrt(sum of squared reserves)
     /// @param reserves Array of token reserves for the tick
@@ -349,13 +173,592 @@ impl OrbitalMathHelper {
     }
 }
 
-// ===================================================================
-//
-//                 PRIVATE HELPERS AND MATH LOGIC
-//
-// ===================================================================
-
 impl OrbitalMathHelper {
+    /// @notice Comprehensive input validation
+    fn validate_inputs(
+        &self,
+        total_reserves: &[U256],
+        token_in_idx: usize,
+        token_out_idx: usize,
+        amount_in_after_fee: U256,
+        sum_interior_reserves: U256,
+        boundary_consolidated_radius: U256,
+    ) -> bool {
+        // Basic index and length validation
+        if token_in_idx >= TOKENS_COUNT || token_out_idx >= TOKENS_COUNT {
+            return false;
+        }
+        if token_in_idx == token_out_idx {
+            return false;
+        }
+        if total_reserves.len() != TOKENS_COUNT {
+            return false;
+        }
+        if amount_in_after_fee.is_zero() {
+            return false;
+        }
+
+        // Liquidity validation
+        if sum_interior_reserves.is_zero() && boundary_consolidated_radius.is_zero() {
+            return false;
+        }
+
+        // Overflow protection - check each reserve is within safe bounds
+        for &reserve in total_reserves.iter() {
+            if reserve >= MAX_SAFE_MULTIPLY || reserve.is_zero() {
+                return false;
+            }
+        }
+
+        // Check input amount is reasonable relative to reserves
+        let max_reserve = total_reserves.iter().max().unwrap_or(&U256::ZERO);
+        if amount_in_after_fee > self.mul_fixed(*max_reserve, U256::from(10)) {
+            return false; // Input too large relative to reserves
+        }
+
+        true
+    }
+
+    /// @notice Calculate robust initial guess with bounds checking
+    fn calculate_initial_guess(&self, amount_in: U256, r_in: U256, r_out: U256) -> Option<U256> {
+        if r_in.is_zero() || r_out.is_zero() {
+            return None;
+        }
+
+        // Constant product approximation with overflow protection
+        let numerator = self.safe_mul(amount_in, r_out)?;
+        let denominator = r_in.saturating_add(amount_in);
+        
+        if denominator.is_zero() {
+            return None;
+        }
+
+        let mut guess = self.div_fixed(numerator, denominator);
+
+        // Bound the initial guess
+        if guess.is_zero() {
+            guess = self.div_fixed(amount_in, U256::from(100)); // Conservative lower bound
+        }
+        
+        // Upper bound: 95% of output reserve
+        let max_output = self.mul_fixed(r_out, U256::from(95)) / U256::from(100);
+        if guess >= max_output {
+            guess = max_output;
+        }
+
+        Some(guess)
+    }
+
+    /// @notice Robust Newton's method with multiple fallback strategies
+    fn solve_newton_with_fallbacks(
+        &self,
+        initial_guess: U256,
+        total_reserves: &[U256],
+        token_in_idx: usize,
+        token_out_idx: usize,
+        amount_in: U256,
+        sum_interior_reserves: U256,
+        interior_consolidated_radius: U256,
+        boundary_consolidated_radius: U256,
+        boundary_total_k_bound: U256,
+        initial_invariant: U256,
+        r_out: U256,
+    ) -> Option<U256> {
+        let mut y = initial_guess;
+        let base_tolerance = self.calculate_adaptive_tolerance(initial_invariant);
+        let mut trust_radius = self.div_fixed(y, U256::from(4)); // Start with smaller trust region
+        let mut consecutive_failures = 0;
+
+        for iteration in 0..MAX_NEWTON_ITERATIONS {
+            let current_tolerance = if iteration < 20 {
+                self.mul_fixed(base_tolerance, U256::from(5)) // Relaxed tolerance initially
+            } else {
+                base_tolerance
+            };
+
+            // Evaluate function with error handling
+            let f_y = match self.safe_evaluate_function(
+                y, total_reserves, token_in_idx, token_out_idx, amount_in,
+                sum_interior_reserves, interior_consolidated_radius,
+                boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+            ) {
+                Some(val) => val,
+                None => {
+                    consecutive_failures += 1;
+                    if consecutive_failures > 3 {
+                        return None;
+                    }
+                    // Try reducing y and continuing
+                    y = self.mul_fixed(y, U256::from(9)) / U256::from(10);
+                    continue;
+                }
+            };
+
+            // Check convergence
+            if self.abs_fixed(f_y) <= current_tolerance {
+                return self.validate_final_result(y, r_out);
+            }
+
+            // Calculate robust numerical derivative
+            let derivative = match self.calculate_robust_derivative(
+                y, total_reserves, token_in_idx, token_out_idx, amount_in,
+                sum_interior_reserves, interior_consolidated_radius,
+                boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+            ) {
+                Some(deriv) if deriv > TINY_SCALED => deriv,
+                _ => {
+                    // Derivative too small, use gradient descent
+                    return self.gradient_descent_fallback(
+                        y, f_y, trust_radius, r_out, iteration,
+                        total_reserves, token_in_idx, token_out_idx, amount_in,
+                        sum_interior_reserves, interior_consolidated_radius,
+                        boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+                    );
+                }
+            };
+
+            // Adaptive step calculation
+            let step_size = self.calculate_adaptive_step(f_y, derivative, trust_radius, iteration);
+            
+            // Update y with bounds enforcement
+            y = self.update_y_with_bounds(y, f_y, step_size, r_out);
+
+            // Adaptive trust radius adjustment
+            trust_radius = self.adjust_trust_radius(trust_radius, iteration, consecutive_failures);
+            consecutive_failures = 0; // Reset on successful iteration
+        }
+
+        None // Failed to converge
+    }
+
+    /// @notice Safe function evaluation with comprehensive error handling
+    fn safe_evaluate_function(
+        &self,
+        y: U256,
+        total_reserves: &[U256],
+        token_in_idx: usize,
+        token_out_idx: usize,
+        amount_in: U256,
+        sum_interior_reserves: U256,
+        interior_consolidated_radius: U256,
+        boundary_consolidated_radius: U256,
+        boundary_total_k_bound: U256,
+        initial_invariant: U256,
+    ) -> Option<U256> {
+        if y.is_zero() || y >= total_reserves[token_out_idx] {
+            return None;
+        }
+
+        // Create new reserves with overflow protection
+        let mut new_reserves = total_reserves.to_vec();
+        new_reserves[token_in_idx] = new_reserves[token_in_idx].saturating_add(amount_in);
+        
+        if new_reserves[token_out_idx] < y {
+            return None;
+        }
+        new_reserves[token_out_idx] = new_reserves[token_out_idx].saturating_sub(y);
+
+        // Validate new reserves are still reasonable
+        for &reserve in new_reserves.iter() {
+            if reserve >= MAX_SAFE_MULTIPLY {
+                return None;
+            }
+        }
+
+        // Calculate new invariant with error handling
+        match self.compute_torus_invariant_fixed(
+            sum_interior_reserves,
+            interior_consolidated_radius,
+            boundary_consolidated_radius,
+            boundary_total_k_bound,
+            &new_reserves,
+        ) {
+            Ok(new_invariant) => {
+                if new_invariant >= initial_invariant {
+                    Some(new_invariant.saturating_sub(initial_invariant).saturating_add(PRECISION))
+                } else {
+                    Some(initial_invariant.saturating_sub(new_invariant))
+                }
+            }
+            Err(_) => None,
+        }
+    }
+
+    /// @notice Calculate robust numerical derivative with multiple approaches
+    fn calculate_robust_derivative(
+        &self,
+        y: U256,
+        total_reserves: &[U256],
+        token_in_idx: usize,
+        token_out_idx: usize,
+        amount_in: U256,
+        sum_interior_reserves: U256,
+        interior_consolidated_radius: U256,
+        boundary_consolidated_radius: U256,
+        boundary_total_k_bound: U256,
+        initial_invariant: U256,
+    ) -> Option<U256> {
+        // Adaptive epsilon based on y magnitude
+        let base_eps = self.max_fixed(
+            self.mul_fixed(y, EPSILON_SCALED) / U256::from(1000), // Smaller epsilon
+            TINY_SCALED,
+        );
+
+        // Try central difference first
+        if let Some(deriv) = self.central_difference_derivative(
+            y, base_eps, total_reserves, token_in_idx, token_out_idx, amount_in,
+            sum_interior_reserves, interior_consolidated_radius,
+            boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+        ) {
+            if deriv > TINY_SCALED {
+                return Some(deriv);
+            }
+        }
+
+        // Fallback to forward difference with smaller step
+        let small_eps = base_eps / U256::from(10);
+        self.forward_difference_derivative(
+            y, small_eps, total_reserves, token_in_idx, token_out_idx, amount_in,
+            sum_interior_reserves, interior_consolidated_radius,
+            boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+        )
+    }
+
+    /// @notice Central difference derivative calculation
+    fn central_difference_derivative(
+        &self,
+        y: U256,
+        eps: U256,
+        total_reserves: &[U256],
+        token_in_idx: usize,
+        token_out_idx: usize,
+        amount_in: U256,
+        sum_interior_reserves: U256,
+        interior_consolidated_radius: U256,
+        boundary_consolidated_radius: U256,
+        boundary_total_k_bound: U256,
+        initial_invariant: U256,
+    ) -> Option<U256> {
+        let y_plus = y.saturating_add(eps);
+        let y_minus = if y >= eps { y.saturating_sub(eps) } else { return None; };
+
+        let f_plus = self.safe_evaluate_function(
+            y_plus, total_reserves, token_in_idx, token_out_idx, amount_in,
+            sum_interior_reserves, interior_consolidated_radius,
+            boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+        )?;
+
+        let f_minus = self.safe_evaluate_function(
+            y_minus, total_reserves, token_in_idx, token_out_idx, amount_in,
+            sum_interior_reserves, interior_consolidated_radius,
+            boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+        )?;
+
+        let f_diff = if f_plus >= f_minus {
+            f_plus.saturating_sub(f_minus)
+        } else {
+            f_minus.saturating_sub(f_plus)
+        };
+
+        let two_eps = eps.saturating_mul(U256::from(2));
+        if two_eps.is_zero() {
+            return None;
+        }
+
+        Some(self.div_fixed(f_diff, two_eps))
+    }
+
+    /// @notice Forward difference derivative calculation
+    fn forward_difference_derivative(
+        &self,
+        y: U256,
+        eps: U256,
+        total_reserves: &[U256],
+        token_in_idx: usize,
+        token_out_idx: usize,
+        amount_in: U256,
+        sum_interior_reserves: U256,
+        interior_consolidated_radius: U256,
+        boundary_consolidated_radius: U256,
+        boundary_total_k_bound: U256,
+        initial_invariant: U256,
+    ) -> Option<U256> {
+        let y_plus = y.saturating_add(eps);
+        
+        let f_y = self.safe_evaluate_function(
+            y, total_reserves, token_in_idx, token_out_idx, amount_in,
+            sum_interior_reserves, interior_consolidated_radius,
+            boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+        )?;
+
+        let f_plus = self.safe_evaluate_function(
+            y_plus, total_reserves, token_in_idx, token_out_idx, amount_in,
+            sum_interior_reserves, interior_consolidated_radius,
+            boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+        )?;
+
+        let f_diff = if f_plus >= f_y {
+            f_plus.saturating_sub(f_y)
+        } else {
+            f_y.saturating_sub(f_plus)
+        };
+
+        if eps.is_zero() {
+            return None;
+        }
+
+        Some(self.div_fixed(f_diff, eps))
+    }
+
+    // ===================================================================
+    //                    ENHANCED MATHEMATICAL HELPERS
+    // ===================================================================
+
+    /// @notice Safe multiplication with overflow detection
+    fn safe_mul(&self, a: U256, b: U256) -> Option<U256> {
+        if a.is_zero() || b.is_zero() {
+            return Some(U256::ZERO);
+        }
+        
+        // Check for potential overflow
+        if a > MAX_SAFE_MULTIPLY / b {
+            return None;
+        }
+        
+        Some(a.saturating_mul(b))
+    }
+
+    /// @notice Enhanced fixed-point multiplication with overflow protection
+    fn mul_fixed(&self, a: U256, b: U256) -> U256 {
+        if let Some(product) = self.safe_mul(a, b) {
+            product / PRECISION
+        } else {
+            // Handle overflow by using high precision arithmetic approximation
+            let a_high = a / U256::from(1000000);
+            let b_high = b / U256::from(1000000);
+            let scale_factor = U256::from(1000000000000_u64); // 1e12
+            
+            (a_high.saturating_mul(b_high).saturating_mul(scale_factor)) / PRECISION
+        }
+    }
+
+    /// @notice Enhanced fixed-point division with better precision
+    fn div_fixed(&self, a: U256, b: U256) -> U256 {
+        if b.is_zero() {
+            return U256::ZERO;
+        }
+        
+        // Check for potential overflow in numerator
+        if a <= MAX_SAFE_MULTIPLY / PRECISION {
+            let numerator = a.saturating_mul(PRECISION);
+            numerator / b
+        } else {
+            // Use scaled division to avoid overflow
+            let scale = U256::from(1000000);
+            let a_scaled = a / scale;
+            let precision_scaled = PRECISION / scale;
+            let numerator = a_scaled.saturating_mul(precision_scaled);
+            numerator / b
+        }
+    }
+
+    /// @notice Robust square root with enhanced convergence
+    fn sqrt_fixed(&self, x: U256) -> U256 {
+        if x.is_zero() {
+            return U256::ZERO;
+        }
+        if x == PRECISION {
+            return PRECISION;
+        }
+        if x < PRECISION {
+            // For values less than 1, use a different initial guess
+            let mut z = x;
+            let mut y = PRECISION;
+            
+            for _ in 0..MAX_ITERATIONS_SQRT {
+                if y >= z {
+                    return z;
+                }
+                z = y;
+                if y.is_zero() {
+                    break;
+                }
+                let x_div_y = self.div_fixed(x, y);
+                y = x_div_y.saturating_add(y) / U256::from(2);
+            }
+            return z;
+        }
+
+        // Standard Newton's method for values >= 1
+        let mut z = x;
+        let mut y = x.saturating_add(PRECISION) / U256::from(2);
+
+        for _ in 0..MAX_ITERATIONS_SQRT {
+            if y >= z {
+                return z;
+            }
+            z = y;
+            if y.is_zero() {
+                break;
+            }
+            let x_div_y = self.div_fixed(x, y);
+            y = x_div_y.saturating_add(y) / U256::from(2);
+        }
+        z
+    }
+
+    /// @notice Calculate adaptive tolerance based on invariant magnitude
+    fn calculate_adaptive_tolerance(&self, invariant: U256) -> U256 {
+        let base_tolerance = self.div_fixed(invariant, TOLERANCE_FACTOR);
+        self.max_fixed(base_tolerance, CONVERGENCE_THRESHOLD)
+    }
+
+    /// @notice Calculate adaptive step size for Newton's method
+    fn calculate_adaptive_step(&self, f_y: U256, derivative: U256, trust_radius: U256, iteration: usize) -> U256 {
+        let newton_step = self.div_fixed(self.abs_fixed(f_y), derivative);
+        let max_step = if iteration < 10 {
+            trust_radius
+        } else {
+            trust_radius / U256::from(2) // More conservative in later iterations
+        };
+        
+        self.min_fixed(newton_step, max_step)
+    }
+
+    /// @notice Update y with strict bounds enforcement
+    fn update_y_with_bounds(&self, y: U256, f_y: U256, step_size: U256, r_out: U256) -> U256 {
+        let new_y = if f_y >= PRECISION {
+            // f_y is positive, subtract step
+            if y >= step_size {
+                y.saturating_sub(step_size)
+            } else {
+                TINY_SCALED
+            }
+        } else {
+            // f_y is negative, add step
+            y.saturating_add(step_size)
+        };
+
+        // Enforce bounds
+        let max_output = self.mul_fixed(r_out, U256::from(98)) / U256::from(100);
+        if new_y.is_zero() {
+            TINY_SCALED
+        } else if new_y >= max_output {
+            max_output
+        } else {
+            new_y
+        }
+    }
+
+    /// @notice Adaptive trust radius adjustment
+    fn adjust_trust_radius(&self, current_radius: U256, iteration: usize, failures: u32) -> U256 {
+        if failures > 0 {
+            // Reduce trust radius on failures
+            current_radius / U256::from(2)
+        } else if iteration < 20 {
+            // Expand trust radius in early iterations
+            self.mul_fixed(current_radius, U256::from(11)) / U256::from(10)
+        } else {
+            // Keep steady in later iterations
+            current_radius
+        }
+    }
+
+    /// @notice Validate final result before returning
+    fn validate_final_result(&self, y: U256, r_out: U256) -> Option<U256> {
+        if y.is_zero() || y >= r_out {
+            return None;
+        }
+        
+        // Additional sanity checks
+        if y > self.mul_fixed(r_out, U256::from(99)) / U256::from(100) {
+            return None; // Too close to total reserves
+        }
+        
+        Some(y)
+    }
+
+    /// @notice Fallback to constant product formula
+    fn fallback_constant_product(&self, amount_in: U256, r_in: U256, r_out: U256) -> U256 {
+        if r_in.is_zero() || r_out.is_zero() {
+            return U256::ZERO;
+        }
+
+        let numerator = self.mul_fixed(amount_in, r_out);
+        let denominator = r_in.saturating_add(amount_in);
+        
+        if denominator.is_zero() {
+            return U256::ZERO;
+        }
+        
+        let result = self.div_fixed(numerator, denominator);
+        // Apply 5% safety margin for fallback
+        self.mul_fixed(result, U256::from(95)) / U256::from(100)
+    }
+
+    /// @notice Gradient descent fallback when derivative is too small
+    fn gradient_descent_fallback(
+        &self,
+        y: U256,
+        f_y: U256,
+        mut step_size: U256,
+        r_out: U256,
+        _iteration: usize,
+        total_reserves: &[U256],
+        token_in_idx: usize,
+        token_out_idx: usize,
+        amount_in: U256,
+        sum_interior_reserves: U256,
+        interior_consolidated_radius: U256,
+        boundary_consolidated_radius: U256,
+        boundary_total_k_bound: U256,
+        initial_invariant: U256,
+    ) -> Option<U256> {
+        let max_gd_iterations = 20;
+        let current_y = y;
+        
+        for _ in 0..max_gd_iterations {
+            let direction = if f_y >= PRECISION { 
+                step_size 
+            } else { 
+                step_size 
+            };
+            
+            let new_y = if f_y >= PRECISION {
+                if current_y >= direction { current_y.saturating_sub(direction) } else { TINY_SCALED }
+            } else {
+                current_y.saturating_add(direction)
+            };
+            
+            // Bounds check
+            if new_y.is_zero() || new_y >= r_out {
+                step_size = step_size / U256::from(2);
+                if step_size < TINY_SCALED {
+                    break;
+                }
+                continue;
+            }
+            
+            // Check if this is an improvement
+            if let Some(new_f_y) = self.safe_evaluate_function(
+                new_y, total_reserves, token_in_idx, token_out_idx, amount_in,
+                sum_interior_reserves, interior_consolidated_radius,
+                boundary_consolidated_radius, boundary_total_k_bound, initial_invariant,
+            ) {
+                if self.abs_fixed(new_f_y) < self.abs_fixed(f_y) {
+                    return Some(new_y);
+                }
+            }
+            
+            step_size = step_size / U256::from(2);
+            if step_size < TINY_SCALED {
+                break;
+            }
+        }
+        
+        None
+    }
+
     /// @notice Computes the torus invariant for a given state using fixed-point arithmetic
     /// @dev Implements: (1/√n * Σ(x_int,i) - k_bound - r_int * √n)² + (√(Σ(x_total,i)² - (1/n)(Σ(x_total,i))²) - r_bound)² = C
     /// @param sum_interior_reserves Sum of interior reserves
@@ -433,132 +836,15 @@ impl OrbitalMathHelper {
         Ok(term1.saturating_add(term2))
     }
 
-    /// @notice Evaluates the function f(y) = new_invariant - initial_invariant at point y
-    /// @dev Used in Newton's method to find the root of the torus invariant equation
-    /// @param y The output amount to evaluate
-    /// @param total_reserves Current total reserves
-    /// @param token_in_idx Index of input token
-    /// @param token_out_idx Index of output token
-    /// @param amount_in Input amount after fees
-    /// @param sum_interior_reserves Sum of interior reserves
-    /// @param interior_consolidated_radius Interior consolidated radius
-    /// @param boundary_consolidated_radius Boundary consolidated radius
-    /// @param boundary_total_k_bound Boundary total k bound
-    /// @param initial_invariant Initial invariant value
-    /// @return Result containing the function value or an error
-    fn evaluate_function_at_y(
-        &self,
-        y: U256,
-        total_reserves: &[U256],
-        token_in_idx: usize,
-        token_out_idx: usize,
-        amount_in: U256,
-        sum_interior_reserves: U256,
-        interior_consolidated_radius: U256,
-        boundary_consolidated_radius: U256,
-        boundary_total_k_bound: U256,
-        initial_invariant: U256,
-    ) -> Result<U256, MathError> {
-        if y.is_zero() {
-            return Ok(U256::MAX); // Return large positive value to indicate infeasible
-        }
-
-        // Create new reserves after the swap
-        let mut new_reserves = total_reserves.to_vec();
-        new_reserves[token_in_idx] = new_reserves[token_in_idx].saturating_add(amount_in);
-
-        if new_reserves[token_out_idx] < y {
-            return Ok(U256::MAX); // Infeasible swap
-        }
-        new_reserves[token_out_idx] = new_reserves[token_out_idx].saturating_sub(y);
-
-        // Calculate new invariant
-        let new_invariant = self.compute_torus_invariant_fixed(
-            sum_interior_reserves,
-            interior_consolidated_radius,
-            boundary_consolidated_radius,
-            boundary_total_k_bound,
-            &new_reserves,
-        )?;
-
-        // Return new_invariant - initial_invariant (signed difference represented as U256)
-        if new_invariant >= initial_invariant {
-            Ok(new_invariant
-                .saturating_sub(initial_invariant)
-                .saturating_add(PRECISION))
-        } else {
-            Ok(initial_invariant.saturating_sub(new_invariant))
-        }
-    }
-
     // ===================================================================
     //                    FIXED-POINT ARITHMETIC HELPERS
     // ===================================================================
-
-    /// @notice Fixed-point multiplication: (a * b) / PRECISION
-    /// @param a First operand
-    /// @param b Second operand
-    /// @return Result of fixed-point multiplication
-    fn mul_fixed(&self, a: U256, b: U256) -> U256 {
-        let product = a.saturating_mul(b);
-        product / PRECISION
-    }
-
-    /// @notice Fixed-point division: (a * PRECISION) / b
-    /// @param a Dividend
-    /// @param b Divisor
-    /// @return Result of fixed-point division
-    fn div_fixed(&self, a: U256, b: U256) -> U256 {
-        if b.is_zero() {
-            return U256::ZERO;
-        }
-        let numerator = a.saturating_mul(PRECISION);
-        numerator / b
-    }
-
-    /// @notice Fixed-point square root using Newton's method
-    /// @param x Value to calculate square root of
-    /// @return Square root of x in fixed-point representation
-    fn sqrt_fixed(&self, x: U256) -> U256 {
-        if x.is_zero() {
-            return U256::ZERO;
-        }
-        if x == PRECISION {
-            return PRECISION; // sqrt(1) = 1 in fixed-point
-        }
-
-        let mut z = x;
-        let mut y = x.saturating_add(PRECISION) / U256::from(2);
-
-        // Newton's method: y = (x/y + y) / 2
-        for _ in 0..256 {
-            if y >= z {
-                return z;
-            }
-            z = y;
-            let x_div_y = self.div_fixed(x, y);
-            y = x_div_y.saturating_add(y) / U256::from(2);
-        }
-        z
-    }
 
     /// @notice Returns absolute value (since we're using U256, this just returns the value)
     /// @param x Value to get absolute value of
     /// @return Absolute value of x
     fn abs_fixed(&self, x: U256) -> U256 {
         x
-    }
-
-    /// @notice Returns the sign of a value (1 for positive, 0 for zero)
-    /// @dev In our encoding, values >= PRECISION are positive, < PRECISION are negative
-    /// @param x Value to get sign of
-    /// @return PRECISION for positive, 0 for zero/negative
-    fn sign_fixed(&self, x: U256) -> U256 {
-        if x >= PRECISION {
-            PRECISION
-        } else {
-            U256::ZERO
-        }
     }
 
     /// @notice Returns the maximum of two fixed-point numbers

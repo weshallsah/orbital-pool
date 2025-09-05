@@ -89,7 +89,7 @@ contract OrbitalPool {
 
     IERC20[TOKENS_COUNT] public tokens;
 
-    IOrbitalMathHelper public mathHelper;
+    IOrbitalMathHelper public immutable mathHelper;
 
     uint256 public swapFee = 3000;
 

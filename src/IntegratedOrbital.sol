@@ -413,8 +413,6 @@ contract orbitalPool {
         return y;
     }
 
-    // --- ALL OTHER HELPER FUNCTIONS LIKE _isValidK, _updateTickReservesWithCrossings, etc. stay the same ---
-    // (Functions omitted for brevity, they do not need changes for this integration)
     function _getTotalReserves()
         public
         view

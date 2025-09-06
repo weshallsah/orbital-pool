@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUpDown, Settings, Info, Zap } from 'lucide-react'
 import { TokenSelector } from '@/components/ui/TokenSelector'
+import { TransactionResult } from '@/components/ui/TransactionResult'
 import { TOKENS } from '@/lib/constants'
 import { useOrbitalAMM } from '@/hooks/useOrbitalAMM'
 import { useWallet } from '@/hooks/useWallet'
@@ -15,14 +16,33 @@ export function SwapInterface() {
     const [amountIn, setAmountIn] = useState('')
     const [slippage, setSlippage] = useState(0.5)
     const [showSettings, setShowSettings] = useState(false)
+    const [showTransactionResult, setShowTransactionResult] = useState(false)
+    const [transactionDetails, setTransactionDetails] = useState<{
+        hash: string
+        amountIn: string
+        amountOut: string
+        tokenInSymbol: string
+        tokenOutSymbol: string
+    } | null>(null)
 
     const { isConnected, connectWallet } = useWallet()
-    const { executeSwap, approveToken, checkAllowance, isLoading, error, isSuccess } = useOrbitalAMM()
+    const { executeSwap, approveToken, checkAllowance, getTokenBalance, isLoading, error, isSuccess, hash } = useOrbitalAMM()
 
-    // Get token allowances
+    // Get token allowances and balances
     const tokenInAllowance = checkAllowance(tokenIn.address)
+    const tokenOutAllowance = checkAllowance(tokenOut.address)
+    const tokenInBalance = getTokenBalance(tokenIn.address)
+    const tokenOutBalance = getTokenBalance(tokenOut.address)
+    
     const needsApproval = tokenInAllowance.data ?
         BigInt(tokenInAllowance.data) < BigInt(parseFloat(amountIn || "0") * 1e18) : true
+
+    // Format balance for display
+    const formatBalance = (balance: bigint | undefined) => {
+        if (!balance) return '0.00'
+        const formatted = Number(balance) / 1e18
+        return formatted.toFixed(2)
+    }
 
     const exchangeRate = useMemo(() => {
         // Hardcoded for demo - in reality would come from contract
@@ -35,6 +55,24 @@ export function SwapInterface() {
         // Simple mock calculation
         return Math.min(amount / 10000, 5) // Max 5% impact
     }, [amountIn])
+
+    // Don't show any output amount - will be fetched from transaction logs
+    const expectedAmountOut = '0.0'
+
+    // Watch for successful transactions
+    useEffect(() => {
+        if (isSuccess && hash && amountIn && transactionDetails === null) {
+            const details = {
+                hash: hash,
+                amountIn: (parseFloat(amountIn) * 1e18).toString(), // Convert to wei for display
+                amountOut: '0', // Will be fetched from transaction logs
+                tokenInSymbol: tokenIn.symbol,
+                tokenOutSymbol: tokenOut.symbol
+            }
+            setTransactionDetails(details)
+            setShowTransactionResult(true)
+        }
+    }, [isSuccess, hash, amountIn, tokenIn.symbol, tokenOut.symbol, transactionDetails])
 
     const handleSwapTokens = () => {
         setTokenIn(tokenOut)
@@ -54,6 +92,9 @@ export function SwapInterface() {
         if (!amountIn || !tokenIn || !tokenOut || !isConnected) return
 
         try {
+            // Reset previous transaction details
+            setTransactionDetails(null)
+            
             // Find token indices
             const tokenInIndex = TOKENS.findIndex(token =>
                 token.address.toLowerCase() === tokenIn.address.toLowerCase()
@@ -70,12 +111,18 @@ export function SwapInterface() {
             // Execute swap with minAmountOut set to 0 (no slippage protection)
             await executeSwap(tokenInIndex, tokenOutIndex, amountIn, "0")
 
-            // Reset form on success
-            setAmountIn('')
+            // Reset form on success - this will happen after transaction is confirmed
+            // setAmountIn('') - moved to transaction result close handler
         } catch (err) {
             console.error('Swap failed:', err)
             alert('Swap failed: ' + (err as Error).message)
         }
+    }
+
+    const handleTransactionResultClose = () => {
+        setShowTransactionResult(false)
+        setTransactionDetails(null)
+        setAmountIn('') // Reset form when closing transaction result
     }
 
     const isValidSwap = amountIn && parseFloat(amountIn) > 0 && isConnected
@@ -162,7 +209,9 @@ export function SwapInterface() {
                     <div className="space-y-3">
                         <div className="flex justify-between text-sm">
                             <span className="text-orange-300 font-mono font-bold tracking-wider">FROM</span>
-                            <span className="text-orange-300/70 font-mono">BALANCE: 1,234.56</span>
+                            <span className="text-orange-300/70 font-mono">
+                                BALANCE: {isConnected ? formatBalance(tokenInBalance.data as bigint) : '0.00'}
+                            </span>
                         </div>
                         <div className="relative">
                             <div className="glass-morphism rounded-2xl p-4 border border-orange-500/20 hover:border-orange-500/40 transition-all duration-300">
@@ -206,7 +255,9 @@ export function SwapInterface() {
                     <div className="space-y-3">
                         <div className="flex justify-between text-sm">
                             <span className="text-orange-300 font-mono font-bold tracking-wider">TO</span>
-                            <span className="text-orange-300/70 font-mono">BALANCE: 987.65</span>
+                            <span className="text-orange-300/70 font-mono">
+                                BALANCE: {isConnected ? formatBalance(tokenOutBalance.data as bigint) : '0.00'}
+                            </span>
                         </div>
                         <div className="relative">
                             <div className="glass-morphism rounded-2xl p-4 border border-orange-500/20 hover:border-orange-500/40 transition-all duration-300">
@@ -215,7 +266,7 @@ export function SwapInterface() {
                                         <input
                                             type="number"
                                             placeholder="0.0"
-                                            value="0.0"
+                                            value={expectedAmountOut}
                                             readOnly
                                             className="w-full bg-transparent text-2xl font-bold text-white placeholder-orange-300/50 outline-none font-mono"
                                         />
@@ -494,6 +545,18 @@ export function SwapInterface() {
                     )}
                 </div>
             </div>
+
+            {/* Transaction Result Modal */}
+            <TransactionResult
+                isOpen={showTransactionResult}
+                onClose={handleTransactionResultClose}
+                transactionHash={transactionDetails?.hash}
+                amountIn={transactionDetails?.amountIn || '0'}
+                amountOut={transactionDetails?.amountOut || '0'}
+                tokenInSymbol={transactionDetails?.tokenInSymbol || ''}
+                tokenOutSymbol={transactionDetails?.tokenOutSymbol || ''}
+                networkName="Arbitrum Sepolia"
+            />
         </motion.div>
     )
 }

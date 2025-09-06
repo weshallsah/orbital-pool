@@ -1,8 +1,8 @@
-// SPDX-License-I    uint256 constant PRECISION = 1e15; // Use 1e15 precision as requested
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {OrbitalPool} from "../src/Counter.sol";
+import {OrbitalPool} from "../src/IntegratedOrbital.sol";
 import {MockUSDC} from "../src/MockUSDC.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 

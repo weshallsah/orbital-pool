@@ -8,62 +8,131 @@
  */
 'use client';
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits, formatUnits } from 'viem';
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi';
+import { parseUnits, formatUnits, parseEther } from 'viem';
 import { CONTRACTS } from '@/lib/wallet';
+import { TOKENS, POOL_CONFIG } from '@/lib/constants';
 import { useState } from 'react';
 
-// Simplified ABI for demo purposes
+// Full Orbital AMM ABI
 const ORBITAL_AMM_ABI = [
   {
-    name: 'swap',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'tokenIn', type: 'address' },
-      { name: 'tokenOut', type: 'address' },
-      { name: 'amountIn', type: 'uint256' },
-      { name: 'minAmountOut', type: 'uint256' },
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "k",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256[5]",
+        "name": "amounts",
+        "type": "uint256[5]"
+      }
     ],
-    outputs: [{ name: 'amountOut', type: 'uint256' }],
+    "name": "addLiquidity",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    name: 'addLiquidity',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'tokenA', type: 'address' },
-      { name: 'tokenB', type: 'address' },
-      { name: 'amountA', type: 'uint256' },
-      { name: 'amountB', type: 'uint256' },
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenOut",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minAmountOut",
+        "type": "uint256"
+      }
     ],
-    outputs: [{ name: 'liquidity', type: 'uint256' }],
+    "name": "swap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountOut",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    name: 'getAmountOut',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'amountIn', type: 'uint256' },
-      { name: 'tokenIn', type: 'address' },
-      { name: 'tokenOut', type: 'address' },
+    "inputs": [],
+    "name": "_getTotalReserves",
+    "outputs": [
+      {
+        "internalType": "uint256[5]",
+        "name": "totalReserves",
+        "type": "uint256[5]"
+      }
     ],
-    outputs: [{ name: 'amountOut', type: 'uint256' }],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    name: 'getPoolInfo',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'tokenA', type: 'address' },
-      { name: 'tokenB', type: 'address' },
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    outputs: [
-      { name: 'reserveA', type: 'uint256' },
-      { name: 'reserveB', type: 'uint256' },
-      { name: 'totalLiquidity', type: 'uint256' },
+    "name": "tokens",
+    "outputs": [
+      {
+        "internalType": "contract IERC20",
+        "name": "",
+        "type": "address"
+      }
     ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
+// ERC20 ABI for token operations
+const ERC20_ABI = [
+  {
+    "name": "approve",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "spender", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "outputs": [{ "name": "", "type": "bool" }]
   },
+  {
+    "name": "allowance",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "owner", "type": "address" },
+      { "name": "spender", "type": "address" }
+    ],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "name": "balanceOf",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "account", "type": "address" }
+    ],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  }
 ] as const;
 
 export function useOrbitalAMM() {
@@ -72,55 +141,65 @@ export function useOrbitalAMM() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+  const { address } = useAccount();
 
-  // Get quote for swap
-  const useSwapQuote = (amountIn: string, tokenIn: string, tokenOut: string) => {
-    const { data: amountOut, isLoading: isQuoteLoading } = useReadContract({
-      address: CONTRACTS.ORBITAL_POOL as `0x${string}`,
-      abi: ORBITAL_AMM_ABI,
-      functionName: 'getAmountOut',
-      args: [
-        parseUnits(amountIn || '0', 18),
-        tokenIn as `0x${string}`,
-        tokenOut as `0x${string}`,
-      ],
+  // Get total reserves
+  const { data: totalReserves } = useReadContract({
+    address: CONTRACTS.ORBITAL_POOL as `0x${string}`,
+    abi: ORBITAL_AMM_ABI,
+    functionName: '_getTotalReserves',
+  });
+
+  // Check token allowance
+  const checkAllowance = (tokenAddress: string) => {
+    return useReadContract({
+      address: tokenAddress as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'allowance',
+      args: [address!, CONTRACTS.ORBITAL_POOL as `0x${string}`],
       query: {
-        enabled: !!amountIn && !!tokenIn && !!tokenOut && parseFloat(amountIn) > 0,
+        enabled: !!address,
       },
     });
-
-    return {
-      amountOut: amountOut ? formatUnits(amountOut, 18) : '0',
-      isLoading: isQuoteLoading,
-    };
   };
 
-  // Get pool information
-  const usePoolInfo = (tokenA: string, tokenB: string) => {
-    const { data: poolData, isLoading: isPoolLoading } = useReadContract({
-      address: CONTRACTS.ORBITAL_POOL as `0x${string}`,
-      abi: ORBITAL_AMM_ABI,
-      functionName: 'getPoolInfo',
-      args: [tokenA as `0x${string}`, tokenB as `0x${string}`],
+  // Get token balance
+  const getTokenBalance = (tokenAddress: string) => {
+    return useReadContract({
+      address: tokenAddress as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address!],
       query: {
-        enabled: !!tokenA && !!tokenB,
+        enabled: !!address,
       },
     });
+  };
 
-    return {
-      reserveA: poolData ? formatUnits(poolData[0], 18) : '0',
-      reserveB: poolData ? formatUnits(poolData[1], 18) : '0',
-      totalLiquidity: poolData ? formatUnits(poolData[2], 18) : '0',
-      isLoading: isPoolLoading,
-    };
+  // Approve token spending
+  const approveToken = async (tokenAddress: string, amount: string) => {
+    try {
+      setIsLoading(true);
+      await writeContract({
+        address: tokenAddress as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [CONTRACTS.ORBITAL_POOL as `0x${string}`, parseEther(amount)],
+      });
+    } catch (err) {
+      console.error('Approval failed:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Execute swap
   const executeSwap = async (
-    tokenIn: string,
-    tokenOut: string,
+    tokenInIndex: number,
+    tokenOutIndex: number,
     amountIn: string,
-    minAmountOut: string
+    minAmountOut: string = "0"
   ) => {
     try {
       setIsLoading(true);
@@ -129,10 +208,10 @@ export function useOrbitalAMM() {
         abi: ORBITAL_AMM_ABI,
         functionName: 'swap',
         args: [
-          tokenIn as `0x${string}`,
-          tokenOut as `0x${string}`,
-          parseUnits(amountIn, 18),
-          parseUnits(minAmountOut, 18),
+          BigInt(tokenInIndex),
+          BigInt(tokenOutIndex),
+          parseEther(amountIn),
+          parseEther(minAmountOut)
         ],
       });
     } catch (err) {
@@ -143,24 +222,25 @@ export function useOrbitalAMM() {
     }
   };
 
-  // Add liquidity
-  const addLiquidity = async (
-    tokenA: string,
-    tokenB: string,
-    amountA: string,
-    amountB: string
-  ) => {
+  // Add liquidity with demo values
+  const addLiquidityDemo = async () => {
     try {
       setIsLoading(true);
+      const demoAmounts: [bigint, bigint, bigint, bigint, bigint] = [
+        parseEther(POOL_CONFIG.demoAmount),
+        parseEther(POOL_CONFIG.demoAmount),
+        parseEther(POOL_CONFIG.demoAmount),
+        parseEther(POOL_CONFIG.demoAmount),
+        parseEther(POOL_CONFIG.demoAmount)
+      ];
+
       await writeContract({
         address: CONTRACTS.ORBITAL_POOL as `0x${string}`,
         abi: ORBITAL_AMM_ABI,
         functionName: 'addLiquidity',
         args: [
-          tokenA as `0x${string}`,
-          tokenB as `0x${string}`,
-          parseUnits(amountA, 18),
-          parseUnits(amountB, 18),
+          BigInt(POOL_CONFIG.demoK),
+          demoAmounts
         ],
       });
     } catch (err) {
@@ -171,17 +251,77 @@ export function useOrbitalAMM() {
     }
   };
 
+  // Add custom liquidity
+  const addLiquidity = async (k: string, amounts: string[]) => {
+    try {
+      setIsLoading(true);
+      const parsedAmounts: [bigint, bigint, bigint, bigint, bigint] = [
+        parseEther(amounts[0] || "0"),
+        parseEther(amounts[1] || "0"),
+        parseEther(amounts[2] || "0"),
+        parseEther(amounts[3] || "0"),
+        parseEther(amounts[4] || "0")
+      ];
+
+      await writeContract({
+        address: CONTRACTS.ORBITAL_POOL as `0x${string}`,
+        abi: ORBITAL_AMM_ABI,
+        functionName: 'addLiquidity',
+        args: [
+          BigInt(k),
+          parsedAmounts
+        ],
+      });
+    } catch (err) {
+      console.error('Add liquidity failed:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Format reserves for display
+  const formatReserves = () => {
+    if (!totalReserves) return null;
+
+    return totalReserves.map((reserve, index) => ({
+      token: TOKENS[index],
+      reserve: formatUnits(reserve, 18),
+      reserveFormatted: Number(formatUnits(reserve, 18)).toFixed(2),
+    }));
+  };
+
   return {
-    // Hooks
-    useSwapQuote,
-    usePoolInfo,
-    // Actions
-    executeSwap,
-    addLiquidity,
-    // Transaction state
+    // States
     isLoading: isLoading || isConfirming,
     isSuccess,
     error,
     hash,
+
+    // Data
+    totalReserves: formatReserves(),
+
+    // Functions
+    executeSwap,
+    addLiquidity,
+    addLiquidityDemo,
+    approveToken,
+    checkAllowance,
+    getTokenBalance,
+
+    // Utils
+    formatReserves,
   };
 }
+
+// Helper function to get token by index
+export const getTokenByIndex = (index: number) => {
+  return TOKENS[index] || null;
+};
+
+// Helper function to get token index
+export const getTokenIndex = (tokenAddress: string) => {
+  return TOKENS.findIndex(token =>
+    token.address.toLowerCase() === tokenAddress.toLowerCase()
+  );
+};

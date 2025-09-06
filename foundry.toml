@@ -3,4 +3,9 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
+# Dependencies
+[dependencies]
+forge-std = { git = "https://github.com/foundry-rs/forge-std", tag = "v1.7.6" }
+openzeppelin-contracts = { git = "https://github.com/OpenZeppelin/openzeppelin-contracts", tag = "v5.0.1" }
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

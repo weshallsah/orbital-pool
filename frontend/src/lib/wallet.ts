@@ -8,22 +8,25 @@
  */
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { arbitrum, arbitrumGoerli, mainnet } from 'wagmi/chains';
+import { arbitrum, arbitrumSepolia, mainnet } from 'wagmi/chains';
 
 // Wallet configuration
 export const config = getDefaultConfig({
   appName: 'Orbital AMM',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'orbital-amm-default',
-  chains: [arbitrum, arbitrumGoerli, mainnet],
+  chains: [arbitrumSepolia, arbitrum, mainnet],
   ssr: true,
 });
 
 // Contract addresses
 export const CONTRACTS = {
-  ORBITAL_POOL: process.env.NEXT_PUBLIC_ORBITAL_POOL_ADDRESS || '0x1234567890123456789012345678901234567890',
-  USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // Arbitrum USDC
-  USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', // Arbitrum USDT
-  DAI: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',  // Arbitrum DAI
+  ORBITAL_POOL: '0xD22434d7c7495e4d73D66b4822B65F474E065425',
+  MATH_HELPER: '0x112F137fcB7fA9Ed84A54767aD4d555904F274d9',
+  MUSDC_A: '0xE7378470a3873Ae42f76779d2155E593C6B9c8c7',
+  MUSDC_B: '0xFE36C66a18Bb7b41b648d38b664b7e4Aec1703B7',
+  MUSDC_C: '0xdA1E20Be597dB6fa4cF59Bb67Fd90D28DcA76579',
+  MUSDC_D: '0x89D8173BF35e72DC7d8627Fc4BE1a3b578e35F7B',
+  MUSDC_E: '0xD4C341523d5Cdb43dfBdC23A9546736b474aDdC3',
 } as const;
 
 // Chain configuration
@@ -33,12 +36,12 @@ export const SUPPORTED_CHAINS = {
     rpcUrl: 'https://arb1.arbitrum.io/rpc',
     blockExplorer: 'https://arbiscan.io',
   },
-  [arbitrumGoerli.id]: {
-    name: 'Arbitrum Goerli',
-    rpcUrl: 'https://goerli-rollup.arbitrum.io/rpc',
-    blockExplorer: 'https://goerli.arbiscan.io',
+  [arbitrumSepolia.id]: {
+    name: 'Arbitrum Sepolia',
+    rpcUrl: 'https://sepolia-rollup.arbitrum.io/rpc',
+    blockExplorer: 'https://sepolia.arbiscan.io',
   },
 } as const;
 
 // Default chain
-export const DEFAULT_CHAIN = arbitrum;
+export const DEFAULT_CHAIN = arbitrumSepolia;

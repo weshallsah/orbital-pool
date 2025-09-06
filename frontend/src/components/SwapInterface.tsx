@@ -5,114 +5,80 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUpDown, Settings, Info, Zap } from 'lucide-react'
 import { TokenSelector } from '@/components/ui/TokenSelector'
 import { TOKENS } from '@/lib/constants'
-import { OrbitalMath, parseTokenAmount, formatTokenAmount } from '@/lib/orbital-math'
+import { useOrbitalAMM } from '@/hooks/useOrbitalAMM'
+import { useWallet } from '@/hooks/useWallet'
 import { formatNumber } from '@/lib/utils'
 
 export function SwapInterface() {
     const [tokenIn, setTokenIn] = useState<typeof TOKENS[number]>(TOKENS[0])
     const [tokenOut, setTokenOut] = useState<typeof TOKENS[number]>(TOKENS[1])
     const [amountIn, setAmountIn] = useState('')
-    const [amountOut, setAmountOut] = useState('')
     const [slippage, setSlippage] = useState(0.5)
-    const [isCalculating, setIsCalculating] = useState(false)
     const [showSettings, setShowSettings] = useState(false)
-    const [isSwapping, setIsSwapping] = useState(false)
 
-    // Mock reserves for demonstration (in reality, these would come from the contract)
-    const mockReserves = useMemo(() => [
-        parseTokenAmount('1000000', 6), // USDC
-        parseTokenAmount('1000000', 6), // USDT  
-        parseTokenAmount('1000000', 18), // DAI
-        parseTokenAmount('1000000', 18), // FRAX
-        parseTokenAmount('1000000', 18), // LUSD
-    ], [])
+    const { isConnected, connectWallet } = useWallet()
+    const { executeSwap, approveToken, checkAllowance, isLoading, error, isSuccess } = useOrbitalAMM()
 
-    // Calculate output amount when input changes
-    useEffect(() => {
-        if (!amountIn || !tokenIn || !tokenOut || amountIn === '0') {
-            setAmountOut('')
-            return
-        }
-
-        setIsCalculating(true)
-
-        // Simulate calculation delay
-        const timer = setTimeout(() => {
-            try {
-                const tokenInIndex = TOKENS.findIndex(t => t.symbol === tokenIn.symbol)
-                const tokenOutIndex = TOKENS.findIndex(t => t.symbol === tokenOut.symbol)
-
-                const amountInBigInt = parseTokenAmount(amountIn, tokenIn.decimals)
-                const calculatedOut = OrbitalMath.calculateTradeOutput(
-                    mockReserves,
-                    tokenInIndex,
-                    tokenOutIndex,
-                    amountInBigInt
-                )
-
-                const formattedOut = formatTokenAmount(calculatedOut, tokenOut.decimals)
-                setAmountOut(formattedOut)
-            } catch (error) {
-                console.error('Calculation error:', error)
-                setAmountOut('0')
-            }
-            setIsCalculating(false)
-        }, 300)
-
-        return () => clearTimeout(timer)
-    }, [amountIn, tokenIn, tokenOut, mockReserves])
-
-    const priceImpact = useMemo(() => {
-        if (!amountIn || !amountOut || !tokenIn || !tokenOut) return 0
-
-        try {
-            const tokenInIndex = TOKENS.findIndex(t => t.symbol === tokenIn.symbol)
-            const tokenOutIndex = TOKENS.findIndex(t => t.symbol === tokenOut.symbol)
-            const amountInBigInt = parseTokenAmount(amountIn, tokenIn.decimals)
-            const amountOutBigInt = parseTokenAmount(amountOut, tokenOut.decimals)
-
-            return OrbitalMath.calculatePriceImpact(
-                mockReserves,
-                tokenInIndex,
-                tokenOutIndex,
-                amountInBigInt,
-                amountOutBigInt
-            )
-        } catch {
-            return 0
-        }
-    }, [amountIn, amountOut, tokenIn, tokenOut, mockReserves])
+    // Get token allowances
+    const tokenInAllowance = checkAllowance(tokenIn.address)
+    const needsApproval = tokenInAllowance.data ?
+        BigInt(tokenInAllowance.data) < BigInt(parseFloat(amountIn || "0") * 1e18) : true
 
     const exchangeRate = useMemo(() => {
-        if (!amountIn || !amountOut || parseFloat(amountIn) === 0) return 0
-        return parseFloat(amountOut) / parseFloat(amountIn)
-    }, [amountIn, amountOut])
+        // Hardcoded for demo - in reality would come from contract
+        return 0.98 + Math.random() * 0.04 // Random rate between 0.98-1.02
+    }, [tokenIn, tokenOut])
+
+    const priceImpact = useMemo(() => {
+        if (!amountIn) return 0
+        const amount = parseFloat(amountIn)
+        // Simple mock calculation
+        return Math.min(amount / 10000, 5) // Max 5% impact
+    }, [amountIn])
 
     const handleSwapTokens = () => {
         setTokenIn(tokenOut)
         setTokenOut(tokenIn)
-        setAmountIn(amountOut)
-        setAmountOut('')
+        setAmountIn('')
+    }
+
+    const handleApprove = async () => {
+        try {
+            await approveToken(tokenIn.address, amountIn)
+        } catch (err) {
+            console.error('Approval failed:', err)
+        }
     }
 
     const handleSwap = async () => {
-        if (!amountIn || !amountOut || !tokenIn || !tokenOut) return
+        if (!amountIn || !tokenIn || !tokenOut || !isConnected) return
 
-        setIsSwapping(true)
+        try {
+            // Find token indices
+            const tokenInIndex = TOKENS.findIndex(token =>
+                token.address.toLowerCase() === tokenIn.address.toLowerCase()
+            )
+            const tokenOutIndex = TOKENS.findIndex(token =>
+                token.address.toLowerCase() === tokenOut.address.toLowerCase()
+            )
 
-        // Simulate swap transaction
-        await new Promise(resolve => setTimeout(resolve, 2000))
+            if (tokenInIndex === -1 || tokenOutIndex === -1) {
+                alert('Invalid token selection')
+                return
+            }
 
-        // Reset form
-        setAmountIn('')
-        setAmountOut('')
-        setIsSwapping(false)
+            // Execute swap with minAmountOut set to 0 (no slippage protection)
+            await executeSwap(tokenInIndex, tokenOutIndex, amountIn, "0")
 
-        // Show success message (you could add a toast here)
-        alert(`Successfully swapped ${amountIn} ${tokenIn.symbol} for ${amountOut} ${tokenOut.symbol}!`)
+            // Reset form on success
+            setAmountIn('')
+        } catch (err) {
+            console.error('Swap failed:', err)
+            alert('Swap failed: ' + (err as Error).message)
+        }
     }
 
-    const isValidSwap = amountIn && amountOut && parseFloat(amountIn) > 0 && parseFloat(amountOut) > 0
+    const isValidSwap = amountIn && parseFloat(amountIn) > 0 && isConnected
 
     return (
         <motion.div
@@ -249,11 +215,11 @@ export function SwapInterface() {
                                         <input
                                             type="number"
                                             placeholder="0.0"
-                                            value={amountOut}
+                                            value="0.0"
                                             readOnly
                                             className="w-full bg-transparent text-2xl font-bold text-white placeholder-orange-300/50 outline-none font-mono"
                                         />
-                                        {isCalculating && (
+                                        {isLoading && (
                                             <div className="absolute right-0 top-1/2 -translate-y-1/2">
                                                 <div className="orbital-loader w-6 h-6" />
                                             </div>
@@ -302,34 +268,73 @@ export function SwapInterface() {
                             <div className="flex justify-between text-sm">
                                 <span className="text-emerald-300/70 font-mono">MINIMUM RECEIVED</span>
                                 <span className="font-bold text-emerald-300 font-mono">
-                                    {formatNumber(parseFloat(amountOut) * (1 - slippage / 100), 4)} {tokenOut.symbol}
+                                    0.0 {tokenOut.symbol}
                                 </span>
                             </div>
                         </motion.div>
                     )}
 
-                    {/* Futuristic Execute Button */}
-                    <motion.button
-                        onClick={handleSwap}
-                        disabled={!isValidSwap || isSwapping}
-                        className={`w-full h-16 rounded-2xl font-bold font-mono text-lg tracking-wider transition-all duration-300 relative overflow-hidden ${!isValidSwap || isSwapping
-                            ? 'glass-morphism border border-gray-500/20 text-gray-500 cursor-not-allowed'
-                            : 'bg-orange-500 text-white hover:shadow-2xl hover:shadow-orange-500/30 hover:bg-orange-600'
-                            }`}
-                        whileHover={!isValidSwap || isSwapping ? {} : { scale: 1.02, y: -2 }}
-                        whileTap={!isValidSwap || isSwapping ? {} : { scale: 0.98 }}
-                        style={!isValidSwap || isSwapping ? {} : {
-                            boxShadow: '0 0 25px rgba(249, 115, 22, 0.4)'
-                        }}
-                    >
-                        {!isValidSwap || isSwapping ? null : (
-                            <div className="absolute inset-0 bg-orange-400 opacity-0 hover:opacity-10 transition-opacity duration-300" />
-                        )}
-                        <div className="relative flex items-center justify-center gap-3">
-                            {isSwapping && <div className="orbital-loader w-6 h-6" />}
-                            {isSwapping ? 'EXECUTING SWAP...' : 'EXECUTE SWAP'}
-                        </div>
-                    </motion.button>
+                    {/* Wallet Connection or Approval/Execute Button */}
+                    {!isConnected ? (
+                        <motion.button
+                            onClick={connectWallet}
+                            className="w-full h-16 rounded-2xl font-bold font-mono text-lg tracking-wider transition-all duration-300 relative overflow-hidden bg-blue-500 text-white hover:shadow-2xl hover:shadow-blue-500/30 hover:bg-blue-600"
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            style={{
+                                boxShadow: '0 0 25px rgba(59, 130, 246, 0.4)'
+                            }}
+                        >
+                            <div className="absolute inset-0 bg-blue-400 opacity-0 hover:opacity-10 transition-opacity duration-300" />
+                            <div className="relative flex items-center justify-center gap-3">
+                                CONNECT WALLET
+                            </div>
+                        </motion.button>
+                    ) : needsApproval ? (
+                        <motion.button
+                            onClick={handleApprove}
+                            disabled={isLoading}
+                            className={`w-full h-16 rounded-2xl font-bold font-mono text-lg tracking-wider transition-all duration-300 relative overflow-hidden ${isLoading
+                                ? 'glass-morphism border border-gray-500/20 text-gray-500 cursor-not-allowed'
+                                : 'bg-yellow-500 text-white hover:shadow-2xl hover:shadow-yellow-500/30 hover:bg-yellow-600'
+                                }`}
+                            whileHover={isLoading ? {} : { scale: 1.02, y: -2 }}
+                            whileTap={isLoading ? {} : { scale: 0.98 }}
+                            style={isLoading ? {} : {
+                                boxShadow: '0 0 25px rgba(234, 179, 8, 0.4)'
+                            }}
+                        >
+                            {!isLoading ? (
+                                <div className="absolute inset-0 bg-yellow-400 opacity-0 hover:opacity-10 transition-opacity duration-300" />
+                            ) : null}
+                            <div className="relative flex items-center justify-center gap-3">
+                                {isLoading && <div className="orbital-loader w-6 h-6" />}
+                                {isLoading ? 'APPROVING...' : `APPROVE ${tokenIn.symbol}`}
+                            </div>
+                        </motion.button>
+                    ) : (
+                        <motion.button
+                            onClick={handleSwap}
+                            disabled={!isValidSwap || isLoading}
+                            className={`w-full h-16 rounded-2xl font-bold font-mono text-lg tracking-wider transition-all duration-300 relative overflow-hidden ${!isValidSwap || isLoading
+                                ? 'glass-morphism border border-gray-500/20 text-gray-500 cursor-not-allowed'
+                                : 'bg-orange-500 text-white hover:shadow-2xl hover:shadow-orange-500/30 hover:bg-orange-600'
+                                }`}
+                            whileHover={!isValidSwap || isLoading ? {} : { scale: 1.02, y: -2 }}
+                            whileTap={!isValidSwap || isLoading ? {} : { scale: 0.98 }}
+                            style={!isValidSwap || isLoading ? {} : {
+                                boxShadow: '0 0 25px rgba(249, 115, 22, 0.4)'
+                            }}
+                        >
+                            {!isValidSwap || isLoading ? null : (
+                                <div className="absolute inset-0 bg-orange-400 opacity-0 hover:opacity-10 transition-opacity duration-300" />
+                            )}
+                            <div className="relative flex items-center justify-center gap-3">
+                                {isLoading && <div className="orbital-loader w-6 h-6" />}
+                                {isLoading ? 'EXECUTING SWAP...' : 'EXECUTE SWAP'}
+                            </div>
+                        </motion.button>
+                    )}
 
                     {/* Protocol Information Section */}
                     <motion.div

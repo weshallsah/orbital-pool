@@ -9,41 +9,41 @@
 
 export const TOKENS = [
   {
-    symbol: "USDC",
-    name: "USD Coin",
-    address: "0xA0b86991c431C17C95E4808E3a230BD3f53A03d",
-    decimals: 6,
+    symbol: "MUSDC-A",
+    name: "Mock USDC A",
+    address: "0xE7378470a3873Ae42f76779d2155E593C6B9c8c7",
+    decimals: 18,
     logo: "/tokens/usdc.svg",
     color: "#2775CA",
   },
   {
-    symbol: "USDT",
-    name: "Tether USD",
-    address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-    decimals: 6,
+    symbol: "MUSDC-B",
+    name: "Mock USDC B",
+    address: "0xFE36C66a18Bb7b41b648d38b664b7e4Aec1703B7",
+    decimals: 18,
     logo: "/tokens/usdt.svg",
     color: "#26A17B",
   },
   {
-    symbol: "DAI",
-    name: "Dai Stablecoin",
-    address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    symbol: "MUSDC-C",
+    name: "Mock USDC C",
+    address: "0xdA1E20Be597dB6fa4cF59Bb67Fd90D28DcA76579",
     decimals: 18,
     logo: "/tokens/dai.svg",
     color: "#F5AC37",
   },
   {
-    symbol: "FRAX",
-    name: "Frax",
-    address: "0x853d955aCEf822Db058eb8505911ED77F175b99e",
+    symbol: "MUSDC-D",
+    name: "Mock USDC D",
+    address: "0x89D8173BF35e72DC7d8627Fc4BE1a3b578e35F7B",
     decimals: 18,
     logo: "/tokens/frax.svg",
     color: "#000000",
   },
   {
-    symbol: "LUSD",
-    name: "Liquity USD",
-    address: "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
+    symbol: "MUSDC-E",
+    name: "Mock USDC E",
+    address: "0xD4C341523d5Cdb43dfBdC23A9546736b474aDdC3",
     decimals: 18,
     logo: "/tokens/lusd.svg",
     color: "#745DDF",
@@ -52,10 +52,13 @@ export const TOKENS = [
 
 // Pool configuration
 export const POOL_CONFIG = {
-  address: "0x1234567890123456789012345678901234567890",
+  address: "0xD22434d7c7495e4d73D66b4822B65F474E065425", // Orbital AMM Pool (redeployed)
+  mathHelper: "0x112F137fcB7fA9Ed84A54767aD4d555904F274d9", // Math Helper
   fee: 0.003, // 0.3%
   maxSlippage: 0.05, // 5%
   minLiquidity: 1000,
+  demoK: "3000000000000000", // Valid K value for demo
+  demoAmount: "1000", // 1000 tokens for demo (will be converted to 1000 * 1e18 with parseEther)
 } as const;
 
 // UI Constants

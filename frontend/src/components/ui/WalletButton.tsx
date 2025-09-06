@@ -22,7 +22,6 @@ export function WalletButton({ className = '' }: WalletButtonProps) {
     address,
     isConnected,
     isConnecting,
-    truncatedAddress,
     balance,
     currentChain,
     isSupportedChain,
@@ -32,6 +31,11 @@ export function WalletButton({ className = '' }: WalletButtonProps) {
   } = useWallet();
 
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // Truncate address for display
+  const truncatedAddress = address
+    ? `${address.slice(0, 6)}...${address.slice(-4)}`
+    : ''
 
   // Not connected state
   if (!isConnected) {
@@ -122,10 +126,9 @@ export function WalletButton({ className = '' }: WalletButtonProps) {
           </div>
         </div>
 
-        <ChevronDown 
-          className={`w-4 h-4 text-green-300 transition-transform duration-200 ${
-            showDropdown ? 'rotate-180' : ''
-          }`} 
+        <ChevronDown
+          className={`w-4 h-4 text-green-300 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''
+            }`}
         />
       </motion.button>
 

@@ -31,13 +31,21 @@ export function useWallet() {
   const currentChain = chainId && SUPPORTED_CHAINS[chainId as keyof typeof SUPPORTED_CHAINS];
 
   // Format balance for display
-  const formattedBalance = balance 
+  const formattedBalance = balance
     ? `${parseFloat(formatUnits(balance.value, balance.decimals)).toFixed(4)} ${balance.symbol}`
     : '0.0000 ETH';
 
-  // Connect wallet function
+  // Connect wallet function (MetaMask only)
   const connectWallet = () => {
-    if (openConnectModal) {
+    // Find MetaMask connector
+    const metamaskConnector = connectors.find(
+      (connector) => connector.name.toLowerCase().includes('metamask')
+    );
+
+    if (metamaskConnector) {
+      connect({ connector: metamaskConnector });
+    } else if (openConnectModal) {
+      // Fallback to connect modal if MetaMask not found
       openConnectModal();
     }
   };
@@ -50,7 +58,7 @@ export function useWallet() {
   };
 
   // Truncate address for display
-  const truncatedAddress = address 
+  const truncatedAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : '';
 
@@ -60,21 +68,21 @@ export function useWallet() {
     isConnected,
     isConnecting,
     truncatedAddress,
-    
+
     // Balance
     balance: formattedBalance,
     isBalanceLoading,
-    
+
     // Chain info
     chainId,
     currentChain,
     isSupportedChain,
-    
+
     // Actions
     connectWallet,
     disconnect,
     switchToSupportedChain,
-    
+
     // Available connectors
     connectors,
   };

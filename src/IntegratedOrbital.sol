@@ -14,6 +14,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @title IOrbitalMathHelper
  * @notice Interface for interacting with the deployed Stylus Math Helper contract
  * @dev Provides mathematical computations for the Orbital AMM including torus invariant solving
+ * @dev This interface should match the deployed Stylus contract on Arbitrum Sepolia testnet
+ * @dev The Stylus contract (orbitalHelper.rs) handles complex mathematical calculations
  */
 interface IOrbitalMathHelper {
     /**
@@ -37,7 +39,7 @@ interface IOrbitalMathHelper {
         uint256 token_in_index,
         uint256 token_out_index,
         uint256 amount_in_after_fee
-    ) external view returns (uint256);
+    ) external returns (uint256);
 
     /**
      * @notice Calculates the radius of a tick from its reserves
@@ -46,7 +48,7 @@ interface IOrbitalMathHelper {
      */
     function calculateRadius(
         uint256[] memory reserves
-    ) external view returns (uint256);
+    ) external returns (uint256);
 
     /**
      * @notice Calculates the s value for a boundary tick
@@ -57,7 +59,7 @@ interface IOrbitalMathHelper {
     function calculateBoundaryTickS(
         uint256 r,
         uint256 k
-    ) external view returns (uint256);
+    ) external returns (uint256);
 }
 
 // ===================================================================
@@ -98,6 +100,68 @@ contract OrbitalPool {
     uint256[] public activeTicks;
 
     mapping(uint256 => bool) public isActiveTick;
+
+    // Helper: convert fixed-size to dynamic array
+    function _toDynamic(uint256[TOKENS_COUNT] memory a)
+        internal
+        pure
+        returns (uint256[] memory v)
+    {
+        v = new uint256[](TOKENS_COUNT);
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) v[i] = a[i];
+    }
+
+    // Low-level CALL wrappers to avoid STATICCALL into Stylus
+    function _callCalculateRadius(uint256[TOKENS_COUNT] memory reserves)
+        internal
+        returns (uint256)
+    {
+        uint256[] memory dyn = _toDynamic(reserves);
+        (bool ok, bytes memory ret) = address(mathHelper).call(
+            abi.encodeWithSignature("calculateRadius(uint256[])", dyn)
+        );
+        if (!ok || ret.length == 0) revert NumericalError();
+        return abi.decode(ret, (uint256));
+    }
+
+    function _callBoundaryTickS(uint256 r, uint256 k)
+        internal
+        returns (uint256)
+    {
+        (bool ok, bytes memory ret) = address(mathHelper).call(
+            abi.encodeWithSignature("calculateBoundaryTickS(uint256,uint256)", r, k)
+        );
+        if (!ok || ret.length == 0) revert NumericalError();
+        return abi.decode(ret, (uint256));
+    }
+
+    function _callSolveTorusInvariant(
+        uint256 sumInterior,
+        uint256 interiorR,
+        uint256 boundaryR,
+        uint256 boundaryK,
+        uint256[TOKENS_COUNT] memory totalReserves,
+        uint256 tokenIn,
+        uint256 tokenOut,
+        uint256 amountInAfterFee
+    ) internal returns (uint256) {
+        uint256[] memory dyn = _toDynamic(totalReserves);
+        (bool ok, bytes memory ret) = address(mathHelper).call(
+            abi.encodeWithSignature(
+                "solveTorusInvariant(uint256,uint256,uint256,uint256,uint256[],uint256,uint256,uint256)",
+                sumInterior,
+                interiorR,
+                boundaryR,
+                boundaryK,
+                dyn,
+                tokenIn,
+                tokenOut,
+                amountInAfterFee
+            )
+        );
+        if (!ok || ret.length == 0) revert NumericalError();
+        return abi.decode(ret, (uint256));
+    }
 
     // ===================================================================
     //
@@ -333,6 +397,20 @@ contract OrbitalPool {
     // ===================================================================
 
     /**
+     * @notice Validates that all amounts in the array are greater than zero
+     * @param amounts Array of token amounts to validate
+     * @return True if all amounts are valid (> 0), false otherwise
+     */
+    function _validateAmounts(
+        uint256[TOKENS_COUNT] memory amounts
+    ) internal pure returns (bool) {
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            if (amounts[i] == 0) return false;
+        }
+        return true;
+    }
+
+    /**
      * @notice Adds liquidity to a tick
      * @param k Tick identifier (must be valid for the resulting radius)
      * @param amounts Array of token amounts to add (all must be > 0)
@@ -358,19 +436,7 @@ contract OrbitalPool {
             }
         }
 
-        uint256[] memory reservesVec = new uint256[](TOKENS_COUNT);
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            reservesVec[i] = reservesForRadiusCalc[i];
-        }
-
-        uint256 newRadius;
-        try mathHelper.calculateRadius(reservesVec) returns (uint256 r) {
-            newRadius = r;
-        } catch Error(string memory reason) {
-            revert MathHelperError(reason);
-        } catch {
-            revert NumericalError();
-        }
+    uint256 newRadius = _callCalculateRadius(reservesForRadiusCalc);
 
         if (!_isValidK(k, newRadius)) revert InvalidKValue();
         uint256 reserveConstraint = (newRadius * PRECISION) / SQRT5_SCALED;
@@ -460,19 +526,7 @@ contract OrbitalPool {
             newReserves[i] = tick.reserves[i] - amountsToReturn[i];
         }
 
-        uint256[] memory reservesVec = new uint256[](TOKENS_COUNT);
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            reservesVec[i] = newReserves[i];
-        }
-
-        uint256 newRadius;
-        try mathHelper.calculateRadius(reservesVec) returns (uint256 r) {
-            newRadius = r;
-        } catch Error(string memory reason) {
-            revert MathHelperError(reason);
-        } catch {
-            revert NumericalError();
-        }
+    uint256 newRadius = _callCalculateRadius(newReserves);
 
         tick.r = newRadius;
         tick.reserves = newReserves;
@@ -574,7 +628,6 @@ contract OrbitalPool {
      */
     function _getConsolidatedTickData()
         internal
-        view
         returns (
             ConsolidatedTickData memory interiorData,
             ConsolidatedTickData memory boundaryData
@@ -594,7 +647,7 @@ contract OrbitalPool {
                     interiorData.totalReserves[j] += tick.reserves[j];
                 }
             } else {
-                uint256 s = mathHelper.calculateBoundaryTickS(tick.r, tick.k);
+                uint256 s = _callBoundaryTickS(tick.r, tick.k);
                 boundaryData.consolidatedRadius += s;
                 boundaryData.totalLiquidity += tick.liquidity;
                 boundaryData.tickCount++;
@@ -620,7 +673,7 @@ contract OrbitalPool {
         uint256 tokenIn,
         uint256 tokenOut,
         uint256 amountIn
-    ) internal view returns (uint256) {
+    ) internal returns (uint256) {
         (
             ConsolidatedTickData memory interiorData,
             ConsolidatedTickData memory boundaryData
@@ -636,34 +689,24 @@ contract OrbitalPool {
             reservesVec[i] = reserves[i];
         }
 
-        // Enhanced error handling for Stylus integration
-        try
-            mathHelper.solveTorusInvariant(
-                sumInteriorReserves,
-                interiorData.consolidatedRadius,
-                boundaryData.consolidatedRadius,
-                boundaryData.totalKBound,
-                reservesVec,
-                tokenIn,
-                tokenOut,
-                amountIn
-            )
-        returns (uint256 amount) {
-            // Additional validation for the returned amount
-            if (amount == 0) {
-                // Try fallback calculation if Stylus returns 0
-                uint256 fallbackAmount = _fallbackSwapCalculation(reserves, tokenIn, tokenOut, amountIn);
-                if (fallbackAmount == 0) revert InsufficientLiquidity();
-                return fallbackAmount;
-            }
-            if (amount >= reserves[tokenOut]) revert InsufficientLiquidity();
-            return amount;
-        } catch Error(string memory reason) {
-            revert MathHelperError(reason);
-        } catch (bytes memory) {
-            // Handle low-level errors from Stylus contract
-            revert NumericalError();
+        uint256 amount = _callSolveTorusInvariant(
+            sumInteriorReserves,
+            interiorData.consolidatedRadius,
+            boundaryData.consolidatedRadius,
+            boundaryData.totalKBound,
+            reserves,
+            tokenIn,
+            tokenOut,
+            amountIn
+        );
+
+        if (amount == 0) {
+            uint256 fallbackAmount = _fallbackSwapCalculation(reserves, tokenIn, tokenOut, amountIn);
+            if (fallbackAmount == 0) revert InsufficientLiquidity();
+            return fallbackAmount;
         }
+        if (amount >= reserves[tokenOut]) revert InsufficientLiquidity();
+        return amount;
     }
 
     /**

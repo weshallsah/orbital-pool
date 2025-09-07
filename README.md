@@ -9,7 +9,9 @@ It’s like Uniswap V3’s surgical precision colliding head-on with Curve’s b
 Orbital is the AMM where capital efficiency doesn’t just scale—it warps.
 
 ## Mathematical Visualization
-|<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-1.gif" width="400" alt="Orbital GIF 1" />|<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-2.gif" width="400" alt="Orbital GIF 2" />|
+<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-1.gif" width="400" alt="Orbital GIF 1" />
+
+<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-2.gif" width="400" alt="Orbital GIF 2" /> 
 
 ## Key Features
 
@@ -74,11 +76,7 @@ Where:
 
 ## Architecture
 
-<img src="public/architecture.png" width="600" alt="Architecture" /> 
-    
-## User Flow
-
-<img src="public/user_flow.png" width="600" alt="Architecture" /> 
+<img src="public/architecture_userflow.png" width="600" alt="Architecture" /> 
 
 ## 🚀 Quick Start
 
@@ -157,6 +155,7 @@ This implementation is based on the [Paradigm Orbital Whitepaper](https://www.pa
 - [@IshaanXCoder](https://github.com/IshaanXCoder) 
 - [@groverInnovate](https://github.com/groverInnovate)
 - [@akronim26](https://github.com/akronim26) 
+
 ## 📄 License
 
 This project is licensed under the MIT License.

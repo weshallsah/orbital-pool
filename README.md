@@ -105,7 +105,7 @@ forge build
 forge test
 ```
 
-## Development
+### Development
 
 ```bash
 # Install dependencies
@@ -118,7 +118,7 @@ npm run dev
 npm run build
 ```
 
-## Environment Variables
+### Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in:
 

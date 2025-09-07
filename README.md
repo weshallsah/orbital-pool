@@ -1,22 +1,29 @@
-# 🌌 Orbital Pool
+## Introduction
 
-> **A multi-token Automated Market Maker implementing the Paradigm's Orbital mathematical model for stablecoin trading**
+> **Orbital Pool isn’t just another AMM, it’s a paradigm shift.**
 
-## 📖 Overview
+By bending liquidity into a torus-shaped universe, Orbital unlocks concentrated liquidity for three or more stablecoins at once. This isn’t your usual 2D liquidity grid—it’s an entirely new dimension where LPs can laser-focus around the sacred $1 mark, while still guaranteeing fair prices even if an entire stablecoin implodes to zero.
 
-Orbital Pool is an innovative Automated Market Maker (AMM) that extends concentrated liquidity to pools of 3 or more stablecoins using a torus-based mathematical model. Unlike traditional 2D concentrated liquidity, Orbital allows liquidity providers to focus their capital around the $1 equal price point while maintaining fair pricing even when one stablecoin depegs to zero.
-### Mathematical Visualization
+It’s like Uniswap v3’s surgical precision colliding head-on with Curve’s bulletproof stability, and the result is something that shouldn’t even exist—but somehow, it does.
+
+Orbital is the AMM where capital efficiency doesn’t just scale—it warps.
+
+## Mathematical Visualization
 | <img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-1.gif" width="400" alt="Orbital GIF 1" /> | <img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-2.gif" width="400" alt="Orbital GIF 2" /> |
 
-### 🎯 Key Features
+## Key Features
 
-- **Multi-token Support**: Trade between multiple different stablecoins in a single pool
-- **Concentrated Liquidity**: Focus capital around the $1 equal price point for maximum efficiency
-- **Torus Invariant**: Advanced mathematical model for price discovery and liquidity management
-- **Marketplay**: Made an efficient usage of best part's of the existing marketplayers - Uniswap and Curve
-- **Made a usecase of Arbitrum's Stylus**: Our entire mathemaitcal engine for complex calulations was based in Rust using stylus for precision, performance and gad efficiency. 
+- **Multi-Token Stability Engine**: Seamlessly trade across three or more stablecoins in a single pool with no more fragmented liquidity.
 
-## 🔬 Mathematical Foundation
+- **Warped Concentrated Liquidity**: Liquidity providers can laser-focus capital around $1, achieving maximum efficiency while still keeping markets resilient.
+
+- **Torus Invariant Model**: A breakthrough mathematical invariant that curves liquidity across dimensions, ensuring fair pricing even in extreme scenarios.
+
+- **Fusion of Giants (Uniswap × Curve)**: Orbital takes Uniswap V3’s precision and Curve’s stability, merging them into a next-generation AMM.
+
+- **Powered by Arbitrum Stylus + Rust**: Our entire mathematical engine runs in Rust via Stylus, unlocking performance and gas efficiency for complex calculations.
+
+## Mathematical Foundation
 
 ### The Orbital Model
 
@@ -25,11 +32,11 @@ The Orbital AMM is built on the mathematical foundation described in the [Paradi
 #### Core Mathematical Concepts
 
 **1. Sphere AMM Formula**
-```
-||r⃗ - x⃗||² = Σᵢ₌₁ⁿ (r - xᵢ)² = r²
-```
+
+<img src="public/orbital_equation.png" width="400" alt="Orbital Equation" /> 
+
 Where:
-- `r⃗ = (r, r, ..., r)` vector is the center of the sphere
+- `r(vector) = (r, r, ..., r)` vector is the center of the sphere
 - `xᵢ` is the AMM's reserve of asset i
 - `r` is the radius of the sphere
 
@@ -55,89 +62,29 @@ Where:
 - `PRECISION = 1e15`
 - `SQRT5_SCALED = 2236067977499790`
 
+## Contract Addresses
 
+- **Orbital AMM Pool**: `0xdCED0759B526257f98c1e0FFDD27c1Fdbe0A549E`
+- **Math Helper (Stylus)**: `0x112F137fcB7fA9Ed84A54767aD4d555904F274d9`
+- **MUSDC-A**: `0x55ED71f5232EdBf6EE38A8696051a15eeF5a1dc4`
+- **MUSDC-B**: `0x88c7714B73809BEabA25AE8f4C5892d15c536012`
+- **MUSDC-C**: `0x8b2aC3bb0c07F0f82c9e31d3E8FFE88dd4976fE9`
+- **MUSDC-D**: `0x12c2ef6F20db8878A2c00fA56169e86D7FA7aca0`
+- **MUSDC-E**: `0xd6a69962522C52ad687102CFdfc52EFa8a0B78A7`
 
-## 🏗️ Architecture
+## Architecture
 
-
-
-### Mathematical Flow
-
-```
-img will come here
-
-```
-
-### Tick States
-
-**Interior Tick**: Normal trading state where reserves can move freely within the sphere
-**Boundary Tick**: Constrained state where reserves are pinned to the tick boundary
-
-
-## 📊 Core Functions
-
-### Adding Liquidity
-
-```solidity
-function addLiquidity(
-    uint256 k,                    // Valid k-value for the tick
-    uint256[5] memory amounts     // Amounts for each token
-) external
-```
-
-**Example Usage:**
-```javascript
-const kValue = 87403204888; // For 1000 tokens each
-const amounts = [
-    ethers.utils.parseEther("1000"), // USD1
-    ethers.utils.parseEther("1000"), // USD2
-    ethers.utils.parseEther("1000"), // USD3
-    ethers.utils.parseEther("1000"), // USD4
-    ethers.utils.parseEther("1000")  // USD5
-];
-
-await pool.addLiquidity(kValue, amounts);
-```
-
-### Swapping Tokens
-
-```solidity
-function swap(
-    uint256 tokenIn,     // Index of input token (0-4)
-    uint256 tokenOut,    // Index of output token (0-4)
-    uint256 amountIn,    // Input amount
-    uint256 minAmountOut // Minimum output amount (slippage protection)
-) external returns (uint256)
-```
-
-**Example Usage:**
-```javascript
-const tokenIn = 0;  // USD1
-const tokenOut = 1; // USD2
-const amountIn = ethers.utils.parseEther("100");
-const minAmountOut = ethers.utils.parseEther("90");
-
-const amountOut = await pool.swap(tokenIn, tokenOut, amountIn, minAmountOut);
-```
-
-### Removing Liquidity
-
-```solidity
-function removeLiquidity(
-    uint256 k,              // Tick identifier
-    uint256 lpSharesToRemove // Number of LP shares to remove
-) external
-```
-
-## 📸 Screenshots & Visualizations
-
-    screenshots aaynge idhar
+<img src="public/architecture.png" width="600" alt="Architecture" /> 
     
+## User Flow
+
+<img src="public/user_flow.png" width="600" alt="Architecture" /> 
+
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- [Foundry](https://getfoundry.sh/) installed
+- Foundry installed
 - Node.js 16+ (for testing)
 - Git
 
@@ -158,6 +105,29 @@ forge build
 forge test
 ```
 
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in:
+
+```bash
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
+```
+
+All contract addresses are pre-configured for Arbitrum Sepolia testnet.
+
 ### Deployment
 
 ```bash
@@ -168,7 +138,7 @@ forge script script/DeployProductionReady.s.sol --rpc-url http://localhost:8545 
 forge script script/DeployProductionReady.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
-## 📚 Documentation
+## Documentation
 
 ### Whitepaper Reference
 
@@ -183,11 +153,10 @@ This implementation is based on the [Paradigm Orbital Whitepaper](https://www.pa
 
 ### Development Team
 
-- [@agrawalx](https://github.com/agrawalx) - Core Development
-- [@IshaanXCoder](https://github.com/IshaanXCoder) - Smart Contracts
-- [@groverInnovate](https://github.com/groverInnovate) - Mathematical Implementation
-- [@akronim26](https://github.com/akronim26) - Testing & Security
-
+- [@agrawalx](https://github.com/agrawalx)
+- [@IshaanXCoder](https://github.com/IshaanXCoder) 
+- [@groverInnovate](https://github.com/groverInnovate)
+- [@akronim26](https://github.com/akronim26) 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

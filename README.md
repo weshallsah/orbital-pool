@@ -159,6 +159,6 @@ This implementation is based on the [Paradigm Orbital Whitepaper](https://www.pa
 - [@akronim26](https://github.com/akronim26) 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 *Built with ❤️ by the Orbital*

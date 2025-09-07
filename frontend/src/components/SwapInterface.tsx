@@ -425,11 +425,11 @@ export function SwapInterface() {
                             </div>
                             <div className="space-y-2">
                                 {[
-                                    { token: 'USDC', amount: '$1250K', percentage: 35, color: 'bg-orange-500' },
-                                    { token: 'USDT', amount: '$980K', percentage: 28, color: 'bg-orange-600' },
-                                    { token: 'DAI', amount: '$750K', percentage: 21, color: 'bg-red-500' },
-                                    { token: 'FRAX', amount: '$420K', percentage: 12, color: 'bg-red-600' },
-                                    { token: 'LUSD', amount: '$140K', percentage: 4, color: 'bg-amber-500' }
+                                    { token: 'USDC', amount: '$10K', percentage: 20, color: 'bg-orange-500' },
+                                    { token: 'USDT', amount: '$10K', percentage: 20, color: 'bg-orange-600' },
+                                    { token: 'DAI', amount: '$10K', percentage: 20, color: 'bg-red-500' },
+                                    { token: 'FRAX', amount: '$10K', percentage: 20, color: 'bg-red-600' },
+                                    { token: 'LUSD', amount: '$10K', percentage: 20, color: 'bg-amber-500' }
                                 ].map((item, index) => (
                                     <motion.div
                                         key={item.token}

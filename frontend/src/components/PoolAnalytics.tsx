@@ -33,13 +33,13 @@ interface EfficiencyData {
 export function PoolAnalytics() {
   const [timeframe, setTimeframe] = useState<'24h' | '7d' | '30d'>('24h')
 
-  // Mock data for demonstration
+  // Mock data for demonstration - Equal distribution at $10,000 each (20% each)
   const poolData: PoolData[] = useMemo(() => [
-    { token: 'USDC', reserves: 1000000, volume24h: 125000, fees24h: 375, utilization: 85 },
-    { token: 'USDT', reserves: 950000, volume24h: 110000, fees24h: 330, utilization: 78 },
-    { token: 'DAI', reserves: 800000, volume24h: 95000, fees24h: 285, utilization: 72 },
-    { token: 'FRAX', reserves: 600000, volume24h: 75000, fees24h: 225, utilization: 65 },
-    { token: 'LUSD', reserves: 400000, volume24h: 50000, fees24h: 150, utilization: 58 },
+    { token: 'USDC', reserves: 10000, volume24h: 125000, fees24h: 375, utilization: 85 },
+    { token: 'USDT', reserves: 10000, volume24h: 110000, fees24h: 330, utilization: 78 },
+    { token: 'DAI', reserves: 10000, volume24h: 95000, fees24h: 285, utilization: 72 },
+    { token: 'FRAX', reserves: 10000, volume24h: 75000, fees24h: 225, utilization: 65 },
+    { token: 'LUSD', reserves: 10000, volume24h: 50000, fees24h: 150, utilization: 58 },
   ], [])
 
   const volumeData: VolumeData[] = useMemo(() => {

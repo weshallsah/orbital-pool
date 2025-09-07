@@ -11,7 +11,7 @@ export const TOKENS = [
   {
     symbol: "USDC",
     name: "USD Coin",
-    address: "0xE7378470a3873Ae42f76779d2155E593C6B9c8c7",
+    address: "0x9666526dcF585863f9ef52D76718d810EE77FB8D",
     decimals: 18,
     logo: "/tokens/usdc.svg",
     color: "#2775CA",
@@ -19,7 +19,7 @@ export const TOKENS = [
   {
     symbol: "USDT",
     name: "Tether USD",
-    address: "0xFE36C66a18Bb7b41b648d38b664b7e4Aec1703B7",
+    address: "0x1921d350666BA0Cf9309D4DA6a033EE0f0a70bEC",
     decimals: 18,
     logo: "/tokens/usdt.svg",
     color: "#26A17B",
@@ -27,7 +27,7 @@ export const TOKENS = [
   {
     symbol: "DAI",
     name: "Dai Stablecoin",
-    address: "0xdA1E20Be597dB6fa4cF59Bb67Fd90D28DcA76579",
+    address: "0xbEDC66545b8A4763eF8962860901F817DB7C2199",
     decimals: 18,
     logo: "/tokens/dai.svg",
     color: "#F5AC37",
@@ -35,7 +35,7 @@ export const TOKENS = [
   {
     symbol: "FRAX",
     name: "Frax",
-    address: "0x89D8173BF35e72DC7d8627Fc4BE1a3b578e35F7B",
+    address: "0x13f62264A2Eb0834DEfb513D7A3c69fde9cc1fD2",
     decimals: 18,
     logo: "/tokens/frax.svg",
     color: "#000000",
@@ -43,7 +43,7 @@ export const TOKENS = [
   {
     symbol: "LUSD",
     name: "Liquity USD",
-    address: "0xD4C341523d5Cdb43dfBdC23A9546736b474aDdC3",
+    address: "0x0510Bf5F38ca1Db3DE4B97E40FFfb9b195B60d41",
     decimals: 18,
     logo: "/tokens/lusd.svg",
     color: "#745DDF",
@@ -52,7 +52,7 @@ export const TOKENS = [
 
 // Pool configuration
 export const POOL_CONFIG = {
-  address: "0xD22434d7c7495e4d73D66b4822B65F474E065425", // Orbital AMM Pool (redeployed)
+  address: "0x83EC719A6F504583d0F88CEd111cB8e8c0956431", // Orbital AMM Pool (redeployed)
   mathHelper: "0x112F137fcB7fA9Ed84A54767aD4d555904F274d9", // Math Helper
   fee: 0.003, // 0.3%
   maxSlippage: 0.05, // 5%

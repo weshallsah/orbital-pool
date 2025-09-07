@@ -152,6 +152,10 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 
 All contract addresses are pre-configured for Arbitrum Sepolia testnet.
 
+## Youtube Link
+
+- [Video Demo](https://www.youtube.com/watch?v=b1orvJa6OE8)
+
 ## Documentation
 
 ### Whitepaper Reference

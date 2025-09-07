@@ -157,7 +157,7 @@ All contract addresses are pre-configured for Arbitrum Sepolia testnet.
 1. Run the deployment and the configuration script given in the `script` folder.
   -> navigate to script folder and run `forge script script/DeployAndConfig.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast` 
 2. Replace the contract addresses with the new addresses in `frontend/src/lib/wallet.ts` and `frontend/src/lib/constants.ts`.
-3. Run `npm run dev` and test.
+3. Navigate to frontend folder and Run `npm i && npm run dev` and test.
 
 ## Youtube Link
 

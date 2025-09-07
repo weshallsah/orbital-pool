@@ -74,9 +74,11 @@ Where:
 - **MUSDC-D**: `0x12c2ef6F20db8878A2c00fA56169e86D7FA7aca0`
 - **MUSDC-E**: `0xd6a69962522C52ad687102CFdfc52EFa8a0B78A7`
 
-## Architecture
+## Architecture & User Flow
 
-<img src="public/architecture_userflow.png" width="600" alt="Architecture" /> 
+<img src="public/userflow.png" width="600" alt="UserFlow" /> 
+
+<img src="public/_architecture.png" width="600" alt="Architecture" /> 
 
 ## 🚀 Quick Start
 
@@ -103,7 +105,22 @@ forge build
 forge test
 ```
 
-### Development
+### Steps to configure your own pool
+
+```bash
+# Deploy pool and the mock tokens
+forge script script/DeployAndConfig.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+
+# Command to add liqudity
+cast send $POOL_ADDRESS "addLiquidity(uint256,uint256[5])" 3000000000000000 "[1000000000000000000000,1000000000000000000000,1000000000000000000000,1000000000000000000000,1000000000000000000000]" --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+
+# Command to swap 
+cast send $POOL_ADDRESS "swap(uint256,uint256,uint256,uint256)" 0 1 20000000000000000000 0 --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+```
+
+### Frontend installation
+
+#### Development
 
 ```bash
 # Install dependencies
@@ -111,12 +128,9 @@ npm install
 
 # Start development server
 npm run dev
-
-# Build for production
-npm run build
 ```
 
-### Environment Variables
+#### Environment Variables
 
 Copy `.env.example` to `.env.local` and fill in:
 
@@ -125,16 +139,6 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 ```
 
 All contract addresses are pre-configured for Arbitrum Sepolia testnet.
-
-### Deployment
-
-```bash
-# Deploy to local network
-forge script script/DeployProductionReady.s.sol --rpc-url http://localhost:8545 --broadcast
-
-# Deploy to testnet
-forge script script/DeployProductionReady.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-```
 
 ## Documentation
 

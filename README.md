@@ -4,7 +4,7 @@
 
 By bending liquidity into a torus-shaped universe, Orbital unlocks concentrated liquidity for three or more stablecoins at once. This isn’t your usual 2D liquidity grid—it’s an entirely new dimension where LPs can laser-focus around the sacred $1 mark, while still guaranteeing fair prices even if an entire stablecoin implodes to zero.
 
-It’s like Uniswap v3’s surgical precision colliding head-on with Curve’s bulletproof stability, and the result is something that shouldn’t even exist—but somehow, it does.
+It’s like Uniswap V3’s surgical precision colliding head-on with Curve’s bulletproof stability, and the result is something that shouldn’t even exist—but somehow, it does.
 
 Orbital is the AMM where capital efficiency doesn’t just scale—it warps.
 

@@ -152,6 +152,12 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
 
 All contract addresses are pre-configured for Arbitrum Sepolia testnet.
 
+### How to test
+
+1. Run the deployment and the configuration script given in the `script` folder.
+2. Replace the contract addresses with the new addresses in `frontend/src/lib/wallet.ts` and `frontend/src/lib/constants.ts`.
+3. Run `npm run dev` and test.
+
 ## Youtube Link
 
 - [Video Demo](https://www.youtube.com/watch?v=b1orvJa6OE8)

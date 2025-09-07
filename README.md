@@ -9,7 +9,8 @@ It’s like Uniswap V3’s surgical precision colliding head-on with Curve’s b
 Orbital is the AMM where capital efficiency doesn’t just scale—it warps.
 
 ## Mathematical Visualization
-| <img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-1.gif" width="400" alt="Orbital GIF 1" /> | <img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-2.gif" width="400" alt="Orbital GIF 2" /> |
+|<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-1.gif" width="400" alt="Orbital GIF 1" />|
+|<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-2.gif" width="400" alt="Orbital GIF 2" />|
 
 ## Key Features
 

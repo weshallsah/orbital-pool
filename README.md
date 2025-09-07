@@ -1,6 +1,11 @@
 ## Introduction
 
 > **Orbital Pool isn’t just another AMM, it’s a paradigm shift.**
+The future holds a million stablecoins. Today's infrastructure isn't ready.
+
+Orbital is an automated market maker for pools of 2, 3, or 10,000 stablecoins.
+
+Orbital unlocks capital efficiency by bringing concentrated liquidity to higher dimensions.
 
 By bending liquidity into a torus-shaped universe, Orbital unlocks concentrated liquidity for three or more stablecoins at once. This isn’t your usual 2D liquidity grid—it’s an entirely new dimension where LPs can laser-focus around the sacred $1 mark, while still guaranteeing fair prices even if an entire stablecoin implodes to zero.
 
@@ -9,9 +14,8 @@ It’s like Uniswap V3’s surgical precision colliding head-on with Curve’s b
 Orbital is the AMM where capital efficiency doesn’t just scale—it warps.
 
 ## Mathematical Visualization
-<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-1.gif" width="400" alt="Orbital GIF 1" />
-
-<img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-2.gif" width="400" alt="Orbital GIF 2" /> 
+<p float="left"><img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-1.gif" width="49%" alt="Orbital GIF 1" /> <img src="https://raw.githubusercontent.com/leeederek/sphere-swap/main/media/orbital-gif-2.gif" width="49%" alt="Orbital GIF 2" />
+</p>
 
 ## Key Features
 

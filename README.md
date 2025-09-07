@@ -1,6 +1,6 @@
 ## Introduction
 
-> **The future holds a million stablecoins. Today's infrastructure isn't ready.**
+> **Orbital Pool isn’t just another AMM, it’s a paradigm shift. The future holds a million stablecoins. Today's infrastructure isn't ready.**
 
 Orbital is an automated market maker for pools of 2, 3, or 10,000 stablecoins. It unlocks capital efficiency by bringing concentrated liquidity to higher dimensions.
 
@@ -44,11 +44,22 @@ Where:
 - `r` is the radius of the sphere
 
 **2. Torus Invariant**
+
 The pool uses a torus (donut-shaped) invariant that combines:
 - **Interior Ticks**: Behave like spheres for normal trading
 - **Boundary Ticks**: Behave like circles when reserves hit boundaries
 
-**3. Tick Geometry**
+<img src="public/torus_equation.jpg" width="400" alt="Torus Equation" />
+
+**3. Newton's Method**
+
+Implementation of newton's method in Stylus contract to solve torus invariant with multiple fallback strategy.
+
+<img src="public/newton_method.jpg"  alt="Newton" />
+<img src="public/torus_invariant.jpg" " alt="Torus"/>
+
+**4. Tick Geometry**
+
 Each tick is defined by:
 - **k**: Plane constant (tick identifier)
 - **r**: Radius of the tick

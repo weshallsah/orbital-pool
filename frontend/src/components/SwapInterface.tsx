@@ -6,7 +6,7 @@ import { ArrowUpDown, Settings, Info, Zap } from 'lucide-react'
 import { TokenSelector } from '@/components/ui/TokenSelector'
 import { TransactionResult } from '@/components/ui/TransactionResult'
 import { TOKENS } from '@/lib/constants'
-import { useOrbitalAMM } from '@/hooks/useOrbitalAMM'
+import { useOrbitalAMM, useTokenAllowance, useTokenBalance } from '@/hooks/useOrbitalAMM'
 import { useWallet } from '@/hooks/useWallet'
 import { formatNumber } from '@/lib/utils'
 
@@ -26,13 +26,13 @@ export function SwapInterface() {
     } | null>(null)
 
     const { isConnected, connectWallet } = useWallet()
-    const { executeSwap, approveToken, checkAllowance, getTokenBalance, isLoading, error, isSuccess, hash } = useOrbitalAMM()
+    const { executeSwap, approveToken, isLoading, isSuccess, hash } = useOrbitalAMM()
 
     // Get token allowances and balances
-    const tokenInAllowance = checkAllowance(tokenIn.address)
-    const tokenOutAllowance = checkAllowance(tokenOut.address)
-    const tokenInBalance = getTokenBalance(tokenIn.address)
-    const tokenOutBalance = getTokenBalance(tokenOut.address)
+    const tokenInAllowance = useTokenAllowance(tokenIn.address)
+    const tokenOutAllowance = useTokenAllowance(tokenOut.address)
+    const tokenInBalance = useTokenBalance(tokenIn.address)
+    const tokenOutBalance = useTokenBalance(tokenOut.address)
     
     const needsApproval = tokenInAllowance.data ?
         BigInt(tokenInAllowance.data) < BigInt(parseFloat(amountIn || "0") * 1e18) : true

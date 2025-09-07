@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { OrbitalSpinner } from '@/components/ui/LoadingSpinner'
 import { TOKENS, POOL_CONFIG } from '@/lib/constants'
-import { useOrbitalAMM } from '@/hooks/useOrbitalAMM'
+import { useOrbitalAMM, useTokenAllowance } from '@/hooks/useOrbitalAMM'
 import { useWallet } from '@/hooks/useWallet'
 import { formatNumber, formatCurrency } from '@/lib/utils'
 
@@ -24,19 +24,29 @@ export function LiquidityInterface() {
     addLiquidity,
     totalReserves,
     approveToken,
-    checkAllowance,
     isLoading,
     error,
     isSuccess
   } = useOrbitalAMM()
 
+  // Dedicated allowance hooks (fixed order to satisfy Rules of Hooks)
+  const allowance0 = useTokenAllowance(TOKENS[0].address)
+  const allowance1 = useTokenAllowance(TOKENS[1].address)
+  const allowance2 = useTokenAllowance(TOKENS[2].address)
+  const allowance3 = useTokenAllowance(TOKENS[3].address)
+  const allowance4 = useTokenAllowance(TOKENS[4].address)
+  const allowances = [allowance0, allowance1, allowance2, allowance3, allowance4]
+
   // Check if we need approvals for all tokens
-  const tokenApprovals = TOKENS.map(token => checkAllowance(token.address))
-  const needsApprovals = tokenApprovals.some((approval, index) => {
-    const amount = amounts[index]
-    if (!amount || !approval.data) return true
-    return BigInt(approval.data) < BigInt(parseFloat(amount) * 1e18)
-  })
+  const needsApprovals = useMemo(() => {
+    return TOKENS.some((_, index) => {
+      const amount = amounts[index]
+      const data = allowances[index]?.data as unknown as bigint | undefined
+      if (!amount) return true
+      const required = BigInt(Math.floor(parseFloat(amount || '0') * 1e18))
+      return !data || data < required
+    })
+  }, [amounts, allowance0.data, allowance1.data, allowance2.data, allowance3.data, allowance4.data])
 
   const totalLiquidityValue = useMemo(() => {
     if (!totalReserves) return 0
@@ -49,9 +59,10 @@ export function LiquidityInterface() {
   const handleApproveAll = async () => {
     try {
       for (let i = 0; i < TOKENS.length; i++) {
-        const approval = tokenApprovals[i]
         const amount = amounts[i]
-        if (amount && approval.data && BigInt(approval.data) < BigInt(parseFloat(amount) * 1e18)) {
+        const data = allowances[i]?.data as unknown as bigint | undefined
+        const required = BigInt(Math.floor(parseFloat(amount || '0') * 1e18))
+        if (required > BigInt(0) && (!data || data < required)) {
           await approveToken(TOKENS[i].address, amount)
         }
       }

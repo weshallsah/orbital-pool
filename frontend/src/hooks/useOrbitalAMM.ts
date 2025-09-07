@@ -9,7 +9,7 @@
 'use client';
 
 import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi';
-import { parseUnits, formatUnits, parseEther } from 'viem';
+import { formatUnits, parseEther } from 'viem';
 import { CONTRACTS } from '@/lib/wallet';
 import { TOKENS, POOL_CONFIG } from '@/lib/constants';
 import { useState } from 'react';
@@ -141,7 +141,6 @@ export function useOrbitalAMM() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
-  const { address } = useAccount();
 
   // Get total reserves
   const { data: totalReserves } = useReadContract({
@@ -150,31 +149,7 @@ export function useOrbitalAMM() {
     functionName: '_getTotalReserves',
   });
 
-  // Check token allowance
-  const checkAllowance = (tokenAddress: string) => {
-    return useReadContract({
-      address: tokenAddress as `0x${string}`,
-      abi: ERC20_ABI,
-      functionName: 'allowance',
-      args: [address!, CONTRACTS.ORBITAL_POOL as `0x${string}`],
-      query: {
-        enabled: !!address,
-      },
-    });
-  };
-
-  // Get token balance
-  const getTokenBalance = (tokenAddress: string) => {
-    return useReadContract({
-      address: tokenAddress as `0x${string}`,
-      abi: ERC20_ABI,
-      functionName: 'balanceOf',
-      args: [address!],
-      query: {
-        enabled: !!address,
-      },
-    });
-  };
+  // NOTE: Allowance and balance hooks are exported separately below to obey Rules of Hooks
 
   // Approve token spending
   const approveToken = async (tokenAddress: string, amount: string) => {
@@ -306,8 +281,6 @@ export function useOrbitalAMM() {
     addLiquidity,
     addLiquidityDemo,
     approveToken,
-    checkAllowance,
-    getTokenBalance,
 
     // Utils
     formatReserves,
@@ -325,3 +298,32 @@ export const getTokenIndex = (tokenAddress: string) => {
     token.address.toLowerCase() === tokenAddress.toLowerCase()
   );
 };
+
+// Dedicated hooks to read allowance and balances (can be used directly inside components)
+export function useTokenAllowance(tokenAddress: string) {
+  const { address } = useAccount();
+  return useReadContract({
+    address: tokenAddress as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    // Pass a placeholder address when not connected; disable query so it won't run
+    args: [
+      (address || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      CONTRACTS.ORBITAL_POOL as `0x${string}`
+    ],
+    query: { enabled: !!address && !!tokenAddress },
+  });
+}
+
+export function useTokenBalance(tokenAddress: string) {
+  const { address } = useAccount();
+  return useReadContract({
+    address: tokenAddress as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [
+      (address || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    ],
+    query: { enabled: !!address && !!tokenAddress },
+  });
+}

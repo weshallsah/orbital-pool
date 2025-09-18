@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 interface IOrbitalMathHelper {
     /**
      * @notice Solves the torus invariant to calculate swap output amount
@@ -20,10 +22,10 @@ interface IOrbitalMathHelper {
         uint256 interior_consolidated_radius,
         uint256 boundary_consolidated_radius,
         uint256 boundary_total_k_bound,
-        uint256[] memory total_reserves,
         uint256 token_in_index,
         uint256 token_out_index,
-        uint256 amount_in_after_fee
+        uint256 amount_in_after_fee,
+        uint256[] memory total_reserves
     ) external returns (uint256);
 
     /**
@@ -42,10 +44,11 @@ interface IOrbitalMathHelper {
      * @return The calculated s value
      */
     function calculateBoundaryTickS(
-        uint256 r,
-        uint256 k
+        uint128 r,
+        uint128 k
     ) external returns (uint256);
 }
+
 contract OrbitalPool {
     uint256 public constant TOKENS_COUNT = 5;
     IERC20[TOKENS_COUNT] public tokens;
@@ -57,36 +60,37 @@ contract OrbitalPool {
         Interior,
         Boundary
     }
+
     struct Tick {
         TickStatus status;
-        uint256 r; 
-        uint256 k; 
-        uint256[TOKENS_COUNT] reserves; 
+        uint128 r;
+        uint128 k;
+        uint256[TOKENS_COUNT] reserves;
     }
-    mapping(uint256 => mapping(uint256 => Tick)) public ticks;
-    function setTick(
-        uint256 r,
-        uint256 k,
-        TickStatus status,
-        uint256[TOKENS_COUNT] calldata reserves
-    ) external {
-        Tick storage t = ticks[r][k];
-        t.status = status;
-        t.r = r;
-        t.k = k;
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            t.reserves[i] = reserves[i];
-        }
-    }
-    function getTick(uint256 r, uint256 k) external view returns (Tick memory) {
-        return ticks[r][k];
-    }
+
+    mapping(uint128 => Tick) public ticks;
+
+    mapping(address => mapping(uint128 => uint256[TOKENS_COUNT]))
+        public lpContributions;
+
     event LiquidityAdded(
+        uint128 r,
+        uint128 k,
         address indexed provider,
-        uint256 k,
-        uint256[TOKENS_COUNT] amounts,
-        uint256 r
+        uint256[TOKENS_COUNT] amounts
     );
+
+    event LiquidityRemoved(
+        uint128 r,
+        uint128 k,
+        address indexed provider,
+        uint256[TOKENS_COUNT] amounts
+    );
+
+    error InvalidRadius();
+    error InvalidK();
+    error UnsatisfiedInvariant();
+
     constructor(
         IERC20[TOKENS_COUNT] memory _tokens,
         address _mathHelperAddress
@@ -94,14 +98,52 @@ contract OrbitalPool {
         tokens = _tokens;
         mathHelper = IOrbitalMathHelper(_mathHelperAddress);
     }
-    function addLiquidity(
-        uint256 k,
-        uint256 r, 
-        uint256[TOKENS_COUNT] memory amounts
-    ) external {
 
+    function setTick(
+        uint128 r,
+        uint128 k,
+        uint256[TOKENS_COUNT] calldata reserves,
+        TickStatus status
+    ) external {
+        Tick storage t = ticks[k];
+        t.status = status;
+        t.r = r;
+        t.k = k;
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            t.reserves[i] = reserves[i];
+        }
+    }
+
+    function getTick(uint128 k) external view returns (Tick memory) {
+        return ticks[k];
+    }
+
+    function getLpContribution(
+        address lp,
+        uint128 k
+    ) external view returns (uint256[TOKENS_COUNT] memory) {
+        return lpContributions[lp][k];
+    }
+
+    function hasLiquidityInTick(
+        address lp,
+        uint128 k
+    ) external view returns (bool) {
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            if (lpContributions[lp][k][i] > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function addLiquidity(
+        uint128 k,
+        uint128 r,
+        uint256[TOKENS_COUNT] calldata amounts
+    ) external {
         _checkValidK(k, r);
-        TickStatus status; 
+        TickStatus status;
         status = _checkTickInvariants(r, k, amounts);
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             require(
@@ -109,42 +151,103 @@ contract OrbitalPool {
                 "Transfer failed"
             );
         }
-        Tick storage tick = ticks[r][k];
+        Tick storage tick = ticks[k];
         if (tick.r == 0) {
-        tick.status = status;
-        tick.r = r;
-        tick.k = k;
-        // initialize reserves
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            tick.reserves[i] = amounts[i];
-        }}
-        emit LiquidityAdded(msg.sender, k, amounts, r);
-    }
-    function _checkValidK(uint256 k, uint256 r) internal view {
-        require(r>0, "Radius must be greater than 0");
-        // k_min = r * (sqrt(5) - 1)
-        uint256 kMin = (r * (sqrt5 - SCALE)) / SCALE;
-        // k_max = r * (4 / sqrt(5))
-        uint256 kMax = (r * 4 * SCALE) / sqrt5;
-        require(k >= kMin && k <= kMax, "Invalid k");
+            tick.status = status;
+            tick.r = r;
+            tick.k = k;
+            for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+                tick.reserves[i] = amounts[i];
+            }
+        }
 
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            lpContributions[msg.sender][k][i] += amounts[i];
+        }
+
+        emit LiquidityAdded(r, k, msg.sender, amounts);
     }
+
+    function removeLiquidity(uint128 k) external {
+        Tick storage tick = ticks[k];
+        if (tick.r == 0) {
+            revert InvalidRadius();
+        }
+        _checkValidK(k, tick.r);
+
+        uint256[TOKENS_COUNT] memory lpAmounts = lpContributions[msg.sender][k];
+
+        bool hasContribution = false;
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            if (lpAmounts[i] > 0) {
+                hasContribution = true;
+                break;
+            }
+        }
+        require(hasContribution, "No liquidity contribution found");
+
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            require(lpAmounts[i] <= tick.reserves[i], "Insufficient reserves");
+        }
+
+        uint256[TOKENS_COUNT] memory newReserves;
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            newReserves[i] = tick.reserves[i] - lpAmounts[i];
+        }
+
+        // uint256 newRadius = mathHelper.calculateRadius(newReserves);
+
+        // tick.r = uint128(newRadius);
+        // for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+        //     tick.reserves[i] = newReserves[i];
+        // }
+
+        // for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+        //     lpContributions[msg.sender][k][i] = 0;
+        // }
+
+        // for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+        //     if (lpAmounts[i] > 0) {
+        //         require(
+        //             tokens[i].transfer(msg.sender, lpAmounts[i]),
+        //             "Transfer failed"
+        //         );
+        //     }
+        // }
+
+        // emit LiquidityRemoved(uint128(newRadius), k, msg.sender, lpAmounts);
+    }
+
+    function _checkValidK(uint128 k, uint128 r) internal view {
+        if (r == 0) {
+            revert InvalidRadius();
+        }
+        uint256 kMin = (r * (sqrt5 - SCALE)) / SCALE;
+        uint256 kMax = (r * 4 * SCALE) / sqrt5;
+        if (k < kMin || k > kMax) {
+            revert InvalidK();
+        }
+    }
+
     function _checkTickInvariants(
-        uint256 r,
-        uint256 k, 
-        uint256[TOKENS_COUNT] memory amounts
+        uint128 r,
+        uint128 k,
+        uint256[TOKENS_COUNT] calldata amounts
     ) internal view returns (TickStatus) {
         uint256 sumOfDifferenceOfReserves = 0;
-        uint256 sum = 0; 
+        uint256 sum = 0;
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             sum += amounts[i];
             uint256 difference = r - amounts[i];
             sumOfDifferenceOfReserves += difference * difference;
         }
         if (sumOfDifferenceOfReserves != r * r) {
-            revert("Invariants not satisfied");
+            revert UnsatisfiedInvariant();
         }
         uint256 lhs = (sum * SCALE) / sqrt5;
-        return (lhs >= k - 1 && lhs <= k + 1) ? TickStatus.Boundary : TickStatus.Interior;
+        return
+            (lhs >= k - 1 && lhs <= k + 1)
+                ? TickStatus.Boundary
+                : TickStatus.Interior;
     }
 }

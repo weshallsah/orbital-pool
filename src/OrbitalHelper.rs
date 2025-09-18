@@ -57,10 +57,10 @@ impl OrbitalMathHelper {
         interior_consolidated_radius: U256,
         boundary_consolidated_radius: U256,
         boundary_total_k_bound: U256,
-        total_reserves: Vec<U256>,
         token_in_index: U256,
         token_out_index: U256,
         amount_in_after_fee: U256,
+        total_reserves: Vec<U256>,
     ) -> U256 {
         let token_in_idx = token_in_index.to::<usize>();
         let token_out_idx = token_out_index.to::<usize>();

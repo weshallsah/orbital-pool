@@ -63,6 +63,24 @@ contract OrbitalPool {
         uint256 k; 
         uint256[TOKENS_COUNT] reserves; 
     }
+    mapping(uint256 => mapping(uint256 => Tick)) public ticks;
+    function setTick(
+        uint256 r,
+        uint256 k,
+        TickStatus status,
+        uint256[TOKENS_COUNT] calldata reserves
+    ) external {
+        Tick storage t = ticks[r][k];
+        t.status = status;
+        t.r = r;
+        t.k = k;
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            t.reserves[i] = reserves[i];
+        }
+    }
+    function getTick(uint256 r, uint256 k) external view returns (Tick memory) {
+        return ticks[r][k];
+    }
     event LiquidityAdded(
         address indexed provider,
         uint256 k,
@@ -82,13 +100,23 @@ contract OrbitalPool {
         uint256[TOKENS_COUNT] memory amounts
     ) external {
         _checkValidK(k, r);
-        _checkTickInvariants(r, amounts);
+        TickStatus status; 
+        status = _checkTickInvariants(r, k, amounts);
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             require(
                 tokens[i].transferFrom(msg.sender, address(this), amounts[i]),
                 "Transfer failed"
             );
         }
+        Tick storage tick = ticks[r][k];
+        if (tick.r == 0) {
+        tick.status = status;
+        tick.r = r;
+        tick.k = k;
+        // initialize reserves
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            tick.reserves[i] = amounts[i];
+        }}
         emit LiquidityAdded(msg.sender, k, amounts, r);
     }
     function _checkValidK(uint256 k, uint256 r) internal view {
@@ -101,15 +129,20 @@ contract OrbitalPool {
     }
     function _checkTickInvariants(
         uint256 r,
+        uint256 k, 
         uint256[TOKENS_COUNT] memory amounts
-    ) internal pure {
-        uint256 sum = 0;
+    ) internal view returns (TickStatus) {
+        uint256 sumOfDifferenceOfReserves = 0;
+        uint256 sum = 0; 
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            require(amounts[i] >= 0, "Amount must be > 0");
-            sum += (r-amounts[i])*(r-amounts[i]);
+            sum += amounts[i];
+            uint256 difference = r - amounts[i];
+            sumOfDifferenceOfReserves += difference * difference;
         }
-        if (sum != r*r) {
+        if (sumOfDifferenceOfReserves != r * r) {
             revert("Invariants not satisfied");
         }
+        uint256 lhs = (sum * SCALE) / sqrt5;
+        return (lhs >= k - 1 && lhs <= k + 1) ? TickStatus.Boundary : TickStatus.Interior;
     }
 }

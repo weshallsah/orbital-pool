@@ -99,6 +99,7 @@ contract OrbitalPool {
         uint256 r, 
         uint256[TOKENS_COUNT] memory amounts
     ) external {
+
         _checkValidK(k, r);
         TickStatus status; 
         status = _checkTickInvariants(r, k, amounts);
@@ -120,6 +121,7 @@ contract OrbitalPool {
         emit LiquidityAdded(msg.sender, k, amounts, r);
     }
     function _checkValidK(uint256 k, uint256 r) internal view {
+        require(r>0, "Radius must be greater than 0");
         // k_min = r * (sqrt(5) - 1)
         uint256 kMin = (r * (sqrt5 - SCALE)) / SCALE;
         // k_max = r * (4 / sqrt(5))

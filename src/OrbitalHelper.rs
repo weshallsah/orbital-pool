@@ -127,12 +127,10 @@ impl OrbitalMathHelper {
 
         let mut sum_squares = U256::ZERO;
         for &reserve in reserves.iter() {
-            // Calculate reserve^2 using fixed-point arithmetic
             let squared = self.mul_fixed(reserve, reserve);
             sum_squares = sum_squares.saturating_add(squared);
         }
 
-        // Calculate integer square root
         self.sqrt_fixed(sum_squares)
     }
 

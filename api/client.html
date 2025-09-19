@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Orbital Pool Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        #status { margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Orbital Pool Client</h1>
+    
+    <div>
+        <h3>Connect Wallet</h3>
+        <button onclick="connectWallet()">Connect Wallet</button>
+        <div id="status" class="info">Ready to connect wallet</div>
+    </div>
+
+    <div id="swapSection" style="display: none;">
+        <h3>Swap Tokens</h3>
+        
+        <div style="margin: 20px 0;">
+            <label>From Token:</label>
+            <select id="tokenIn" style="margin-left: 10px; padding: 5px;">
+                <option value="0">MUSDC-A</option>
+                <option value="1">MUSDC-B</option>
+                <option value="2">MUSDC-C</option>
+                <option value="3">MUSDC-D</option>
+                <option value="4">MUSDC-E</option>
+            </select>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <label>To Token:</label>
+            <select id="tokenOut" style="margin-left: 10px; padding: 5px;">
+                <option value="0">MUSDC-A</option>
+                <option value="1" selected>MUSDC-B</option>
+                <option value="2">MUSDC-C</option>
+                <option value="3">MUSDC-D</option>
+                <option value="4">MUSDC-E</option>
+            </select>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <label>Amount:</label>
+            <input type="number" id="amountIn" placeholder="1.0" step="0.1" min="0" style="margin-left: 10px; padding: 5px; width: 150px;">
+            <span style="margin-left: 10px;">tokens</span>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <label>Min Amount Out:</label>
+            <input type="number" id="minAmountOut" placeholder="0.0" step="0.1" min="0" style="margin-left: 10px; padding: 5px; width: 150px;">
+            <span style="margin-left: 10px;">tokens (slippage protection)</span>
+        </div>
+
+        <button onclick="executeSwap()" style="background-color: #007bff; color: white; border: none; border-radius: 5px;">Execute Swap</button>
+        
+        <div id="swapStatus" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="liquiditySection" style="display: none; margin-top: 40px;">
+        <h3>Liquidity Operations</h3>
+        
+        <div style="margin: 20px 0;">
+            <h4>Add Liquidity</h4>
+            <label>K Value (tick):</label>
+            <input type="text" id="kValue" placeholder="3000000000000000" style="margin-left: 10px; padding: 5px; width: 200px;">
+            <br><br>
+            
+            <label>Token Amounts (all 5 tokens):</label><br>
+            <input type="number" id="amount0" placeholder="1000" step="1" min="0" style="margin: 5px; padding: 5px; width: 100px;"> MUSDC-A<br>
+            <input type="number" id="amount1" placeholder="1000" step="1" min="0" style="margin: 5px; padding: 5px; width: 100px;"> MUSDC-B<br>
+            <input type="number" id="amount2" placeholder="1000" step="1" min="0" style="margin: 5px; padding: 5px; width: 100px;"> MUSDC-C<br>
+            <input type="number" id="amount3" placeholder="1000" step="1" min="0" style="margin: 5px; padding: 5px; width: 100px;"> MUSDC-D<br>
+            <input type="number" id="amount4" placeholder="1000" step="1" min="0" style="margin: 5px; padding: 5px; width: 100px;"> MUSDC-E<br>
+            
+            <button onclick="addLiquidity()" style="background-color: #28a745; color: white; border: none; border-radius: 5px; margin-top: 10px;">Add Liquidity</button>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <h4>Remove Liquidity</h4>
+            <label>K Value (tick):</label>
+            <input type="text" id="removeKValue" placeholder="3000000000000000" style="margin-left: 10px; padding: 5px; width: 200px;">
+            <br><br>
+            <label>LP Shares to Remove:</label>
+            <input type="number" id="lpShares" placeholder="1.0" step="0.1" min="0" style="margin-left: 10px; padding: 5px; width: 150px;">
+            
+            <button onclick="removeLiquidity()" style="background-color: #dc3545; color: white; border: none; border-radius: 5px; margin-top: 10px;">Remove Liquidity</button>
+        </div>
+        
+        <div id="liquidityStatus" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        let userAddress;
+
+        async function connectWallet() {
+            const statusDiv = document.getElementById('status');
+            
+            if (typeof window.ethereum === 'undefined') {
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = '❌ MetaMask not detected. Please install MetaMask extension.';
+                return;
+            }
+
+            try {
+                statusDiv.className = 'info';
+                statusDiv.innerHTML = '🔄 Connecting to MetaMask...';
+                
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
+                // Convert to checksum address format
+                userAddress = window.ethereum.selectedAddress || accounts[0];
+                if (userAddress && userAddress.length === 42) {
+                    // Simple checksum conversion for display
+                    userAddress = userAddress.toLowerCase();
+                }
+                statusDiv.className = 'success';
+                statusDiv.innerHTML = `✅ Connected: ${userAddress}`;
+                
+                document.getElementById('swapSection').style.display = 'block';
+                document.getElementById('liquiditySection').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = `❌ Connection failed: ${error.message}`;
+            }
+        }
+
+        async function executeSwap() {
+            const swapStatusDiv = document.getElementById('swapStatus');
+            
+            if (!userAddress) {
+                swapStatusDiv.className = 'error';
+                swapStatusDiv.innerHTML = '❌ Please connect wallet first!';
+                return;
+            }
+
+            const tokenInIndex = parseInt(document.getElementById('tokenIn').value);
+            const tokenOutIndex = parseInt(document.getElementById('tokenOut').value);
+            const amountIn = document.getElementById('amountIn').value;
+            const minAmountOut = document.getElementById('minAmountOut').value;
+
+            if (tokenInIndex === tokenOutIndex) {
+                swapStatusDiv.className = 'error';
+                swapStatusDiv.innerHTML = '❌ Cannot swap the same token!';
+                return;
+            }
+
+            if (!amountIn || parseFloat(amountIn) <= 0) {
+                swapStatusDiv.className = 'error';
+                swapStatusDiv.innerHTML = '❌ Please enter a valid amount!';
+                return;
+            }
+
+            try {
+                swapStatusDiv.className = 'info';
+                swapStatusDiv.innerHTML = '🔄 Getting swap quote from API...';
+                
+                const amountInWei = (parseFloat(amountIn) * Math.pow(10, 18)).toString();
+                const minAmountOutWei = minAmountOut ? (parseFloat(minAmountOut) * Math.pow(10, 18)).toString() : "0";
+                
+                const response = await fetch('http://localhost:8000/swap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token_in_index: tokenInIndex,
+                        token_out_index: tokenOutIndex,
+                        amount_in: amountInWei,
+                        min_amount_out: minAmountOutWei,
+                        user_address: userAddress
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'API request failed');
+                }
+
+                swapStatusDiv.className = 'info';
+                swapStatusDiv.innerHTML = `
+                    🔄 Swap Details:<br>
+                    From: ${data.token_in.symbol}<br>
+                    To: ${data.token_out.symbol}<br>
+                    Amount: ${amountIn} tokens<br>
+                    <br>Please confirm transaction in MetaMask...
+                `;
+                
+                const txHash = await window.ethereum.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: userAddress,
+                        to: data.transaction_data.to,
+                        data: data.transaction_data.data,
+                        gas: '0x' + data.transaction_data.gas.toString(16),
+                        gasPrice: '0x' + data.transaction_data.gasPrice.toString(16)
+                    }]
+                });
+
+                swapStatusDiv.className = 'success';
+                swapStatusDiv.innerHTML = `
+                    ✅ Swap Transaction Sent!<br>
+                    From: ${data.token_in.symbol} → To: ${data.token_out.symbol}<br>
+                    Amount: ${amountIn} tokens<br>
+                    Hash: <a href="https://sepolia.arbiscan.io/tx/${txHash}" target="_blank">${txHash}</a><br>
+                    <small>Click hash to view on Arbiscan</small>
+                `;
+                
+            } catch (error) {
+                console.error('Error executing swap:', error);
+                swapStatusDiv.className = 'error';
+                swapStatusDiv.innerHTML = `❌ Swap failed: ${error.message}`;
+            }
+        }
+
+        async function addLiquidity() {
+            const liquidityStatusDiv = document.getElementById('liquidityStatus');
+            
+            if (!userAddress) {
+                liquidityStatusDiv.className = 'error';
+                liquidityStatusDiv.innerHTML = '❌ Please connect wallet first!';
+                return;
+            }
+
+            const kValue = document.getElementById('kValue').value;
+            const amounts = [
+                document.getElementById('amount0').value,
+                document.getElementById('amount1').value,
+                document.getElementById('amount2').value,
+                document.getElementById('amount3').value,
+                document.getElementById('amount4').value
+            ];
+
+            if (!kValue) {
+                liquidityStatusDiv.className = 'error';
+                liquidityStatusDiv.innerHTML = '❌ Please enter K value!';
+                return;
+            }
+
+            if (amounts.some(amount => !amount || parseFloat(amount) <= 0)) {
+                liquidityStatusDiv.className = 'error';
+                liquidityStatusDiv.innerHTML = '❌ Please enter valid amounts for all tokens!';
+                return;
+            }
+
+            try {
+                liquidityStatusDiv.className = 'info';
+                liquidityStatusDiv.innerHTML = '🔄 Adding liquidity...';
+                
+                const amountsWei = amounts.map(amount => (parseFloat(amount) * Math.pow(10, 18)).toString());
+                
+                const response = await fetch('http://localhost:8000/liquidity/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        k_value: kValue,
+                        amounts: amountsWei,
+                        user_address: userAddress
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'API request failed');
+                }
+
+                liquidityStatusDiv.className = 'info';
+                liquidityStatusDiv.innerHTML = '🔄 Please confirm transaction in MetaMask...';
+                
+                const txHash = await window.ethereum.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: userAddress,
+                        to: data.transaction_data.to,
+                        data: data.transaction_data.data,
+                        gas: '0x' + data.transaction_data.gas.toString(16),
+                        gasPrice: '0x' + data.transaction_data.gasPrice.toString(16)
+                    }]
+                });
+
+                liquidityStatusDiv.className = 'success';
+                liquidityStatusDiv.innerHTML = `
+                    ✅ Liquidity Added!<br>
+                    K Value: ${kValue}<br>
+                    Hash: <a href="https://sepolia.arbiscan.io/tx/${txHash}" target="_blank">${txHash}</a>
+                `;
+                
+            } catch (error) {
+                console.error('Error adding liquidity:', error);
+                liquidityStatusDiv.className = 'error';
+                liquidityStatusDiv.innerHTML = `❌ Add liquidity failed: ${error.message}`;
+            }
+        }
+
+        async function removeLiquidity() {
+            const liquidityStatusDiv = document.getElementById('liquidityStatus');
+            
+            if (!userAddress) {
+                liquidityStatusDiv.className = 'error';
+                liquidityStatusDiv.innerHTML = '❌ Please connect wallet first!';
+                return;
+            }
+
+            const kValue = document.getElementById('removeKValue').value;
+            const lpShares = document.getElementById('lpShares').value;
+
+            if (!kValue || !lpShares || parseFloat(lpShares) <= 0) {
+                liquidityStatusDiv.className = 'error';
+                liquidityStatusDiv.innerHTML = '❌ Please enter valid K value and LP shares!';
+                return;
+            }
+
+            try {
+                liquidityStatusDiv.className = 'info';
+                liquidityStatusDiv.innerHTML = '🔄 Removing liquidity...';
+                
+                const lpSharesWei = (parseFloat(lpShares) * Math.pow(10, 18)).toString();
+                
+                const response = await fetch('http://localhost:8000/liquidity/remove', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        k_value: kValue,
+                        lp_shares: lpSharesWei,
+                        user_address: userAddress
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'API request failed');
+                }
+
+                liquidityStatusDiv.className = 'info';
+                liquidityStatusDiv.innerHTML = '🔄 Please confirm transaction in MetaMask...';
+                
+                const txHash = await window.ethereum.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: userAddress,
+                        to: data.transaction_data.to,
+                        data: data.transaction_data.data,
+                        gas: '0x' + data.transaction_data.gas.toString(16),
+                        gasPrice: '0x' + data.transaction_data.gasPrice.toString(16)
+                    }]
+                });
+
+                liquidityStatusDiv.className = 'success';
+                liquidityStatusDiv.innerHTML = `
+                    ✅ Liquidity Removed!<br>
+                    LP Shares: ${lpShares}<br>
+                    Hash: <a href="https://sepolia.arbiscan.io/tx/${txHash}" target="_blank">${txHash}</a>
+                `;
+                
+            } catch (error) {
+                console.error('Error removing liquidity:', error);
+                liquidityStatusDiv.className = 'error';
+                liquidityStatusDiv.innerHTML = `❌ Remove liquidity failed: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

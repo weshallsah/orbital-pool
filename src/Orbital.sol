@@ -64,21 +64,21 @@ interface IOrbitalMathHelper {
 /**
  * @title OrbitalPool
  * @notice A 5-token AMM implementing the Orbital mathematical model
- * @dev Uses a torus-based invariant for price discovery and liquidity management
+ * @dev Uses a torus-based invariant for price discovery and liquidity management. It uses the notation Q96.48 to represent decimals.
+ * @dev Every numerical value is marked in this format unless marked otherwise.
  * @author Orbital Protocol
  */
 contract OrbitalPool {
     using SafeERC20 for IERC20;
 
-    uint256 public constant TOKENS_COUNT = 5;
-    uint256 private constant SQRT5_SCALED = 2236067977499790;
-    uint256 private constant PRECISION = 1e15;
+    uint256 public constant TOKENS_COUNT = 5; // This is not in Q96.48 format
+    uint144 private constant SQRT5_SCALED = 2236067977499790 << 33;
     IOrbitalMathHelper public immutable mathHelper;
-    uint256 public constant swapFee = 3000;
-    uint256 public constant FEE_DENOMINATOR = 1000000;
+    uint144 public constant SWAP_FEE = 3 << 47;
+    uint144 public constant FEE_DENOMINATOR = 100 << 48;
     IERC20[TOKENS_COUNT] public tokens;
-    uint256[TOKENS_COUNT] public totalReserves;
-    mapping(uint256 p => Tick) public activeTicks;
+    uint144[TOKENS_COUNT] public totalReserves;
+    mapping(uint144 p => Tick) public activeTicks;
 
     /**
      * @notice Status of a tick in the pool
@@ -93,15 +93,15 @@ contract OrbitalPool {
      * @dev Each tick has its own reserves and LP shares
      */
     struct Tick {
-        uint256 p;
-        uint128 r; /// @dev Radius of the tick
-        uint128 k; /// @dev Plane constant for the tick
-        uint256 liquidity; /// @dev Total liquidity in the tick
-        uint256 totalLpShares; /// @dev Total LP shares issued
-        uint256 accruedFees; /// @dev Total fees accrued
+        uint144 p;
+        uint144 r; /// @dev Radius of the tick
+        uint144 k; /// @dev Plane constant for the tick
+        uint144 liquidity; /// @dev Total liquidity in the tick
+        uint144 totalLpShares; /// @dev Total LP shares issued
+        uint144 accruedFees; /// @dev Total fees accrued
         TickStatus status; /// @dev Current status of the tick
-        mapping(address => uint256) lpShares; /// @dev LP shares per address
-        uint256[TOKENS_COUNT] reserves; /// @dev Reserves of each token
+        mapping(address => uint144) lpShares; /// @dev LP shares per address
+        uint144[TOKENS_COUNT] reserves; /// @dev Reserves of each token
     }
 
     /**
@@ -109,12 +109,12 @@ contract OrbitalPool {
      * @dev Used for efficient swap calculations
      */
     struct ConsolidatedTickData {
-        uint256 totalLiquidity; /// @dev Combined liquidity
-        uint128 tickCount; /// @dev Number of ticks
-        uint128 consolidatedRadius; /// @dev Combined radius
-        uint128 totalKBound; /// @dev Sum of k values for boundary ticks
-        uint256[TOKENS_COUNT] totalReserves; /// @dev Sum of reserves across ticks
-        uint256[TOKENS_COUNT] sumSquaredReserves; /// @dev Sum of squared reserves
+        uint144 totalLiquidity; /// @dev Combined liquidity
+        uint144 tickCount; /// @dev Number of ticks
+        uint144 consolidatedRadius; /// @dev Combined radius
+        uint144 totalKBound; /// @dev Sum of k values for boundary ticks
+        uint144[TOKENS_COUNT] totalReserves; /// @dev Sum of reserves across ticks
+        uint144[TOKENS_COUNT] sumSquaredReserves; /// @dev Sum of squared reserves
     }
 
     /**
@@ -124,10 +124,10 @@ contract OrbitalPool {
      * @param lpShares LP shares minted
      */
     event LiquidityAdded(
-        uint256[TOKENS_COUNT] amounts,
-        uint256 lpShares,
+        uint144[TOKENS_COUNT] amounts,
+        uint144 lpShares,
         address indexed provider,
-        uint256 p
+        uint144 p
     );
 
     /**
@@ -136,9 +136,9 @@ contract OrbitalPool {
      * @param amounts Amounts of each token removed
      */
     event LiquidityRemoved(
-        uint256[TOKENS_COUNT] amounts,
+        uint144[TOKENS_COUNT] amounts,
         address indexed provider,
-        uint256 p
+        uint144 p
     );
 
     /**
@@ -152,11 +152,11 @@ contract OrbitalPool {
      */
     event Swap(
         address indexed trader,
-        uint64 tokenIn,
-        uint64 tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 fee
+        uint144 tokenIn,
+        uint144 tokenOut,
+        uint144 amountIn,
+        uint144 amountOut,
+        uint144 fee
     );
 
     /**
@@ -165,7 +165,7 @@ contract OrbitalPool {
      * @param newStatus New status
      */
     event TickStatusChanged(
-        uint256 p,
+        uint144 p,
         TickStatus oldStatus,
         TickStatus newStatus
     );
@@ -194,27 +194,27 @@ contract OrbitalPool {
     }
 
     function _toDynamic(
-        uint256[TOKENS_COUNT] memory arrayIn
-    ) internal pure returns (uint256[] memory arrayOut) {
-        arrayOut = new uint256[](TOKENS_COUNT);
+        uint144[TOKENS_COUNT] memory arrayIn
+    ) internal pure returns (uint144[] memory arrayOut) {
+        arrayOut = new uint144[](TOKENS_COUNT);
         for (uint256 i = 0; i < TOKENS_COUNT; i++) arrayOut[i] = arrayIn[i];
     }
 
     function _callCalculateRadius(
-        uint256[TOKENS_COUNT] memory reserves
-    ) internal returns (uint128) {
-        uint256[] memory dyn = _toDynamic(reserves);
+        uint144[TOKENS_COUNT] memory reserves
+    ) internal returns (uint144) {
+        uint144[] memory dyn = _toDynamic(reserves);
         (bool ok, bytes memory ret) = address(mathHelper).call(
             abi.encodeWithSignature("calculateRadius(uint256[])", dyn)
         );
         if (!ok || ret.length == 0) revert NumericalError();
-        return abi.decode(ret, (uint128));
+        return abi.decode(ret, (uint144));
     }
 
     function _callBoundaryTickS(
-        uint128 r,
-        uint128 k
-    ) internal returns (uint256) {
+        uint144 r,
+        uint144 k
+    ) internal returns (uint144) {
         (bool ok, bytes memory ret) = address(mathHelper).call(
             abi.encodeWithSignature(
                 "calculateBoundaryTickS(uint256,uint256)",
@@ -223,20 +223,20 @@ contract OrbitalPool {
             )
         );
         if (!ok || ret.length == 0) revert NumericalError();
-        return abi.decode(ret, (uint256));
+        return abi.decode(ret, (uint144));
     }
 
     function _callSolveTorusInvariant(
-        uint256 sumInterior,
-        uint128 interiorR,
-        uint128 boundaryR,
-        uint128 boundaryK,
-        uint64 tokenIn,
-        uint64 tokenOut,
-        uint256 amountInAfterFee,
-        uint256[TOKENS_COUNT] memory _totalReserves
-    ) internal returns (uint256) {
-        uint256[] memory dyn = _toDynamic(_totalReserves);
+        uint144 sumInterior,
+        uint144 interiorR,
+        uint144 boundaryR,
+        uint144 boundaryK,
+        uint144 tokenIn,
+        uint144 tokenOut,
+        uint144 amountInAfterFee,
+        uint144[TOKENS_COUNT] memory _totalReserves
+    ) internal returns (uint144) {
+        uint144[] memory dyn = _toDynamic(_totalReserves);
         (bool ok, bytes memory ret) = address(mathHelper).call(
             abi.encodeWithSignature(
                 "solveTorusInvariant(uint256,uint256,uint256,uint256,uint256[],uint256,uint256,uint256)",
@@ -251,7 +251,7 @@ contract OrbitalPool {
             )
         );
         if (!ok || ret.length == 0) revert NumericalError();
-        return abi.decode(ret, (uint256));
+        return abi.decode(ret, (uint144));
     }
 
     /**
@@ -260,9 +260,9 @@ contract OrbitalPool {
      * @return LP shares owned by the user
      */
     function getLpShares(
-        uint256 p,
+        uint144 p,
         address user
-    ) external view returns (uint256) {
+    ) external view returns (uint144) {
         return activeTicks[p].lpShares[user];
     }
 
@@ -270,7 +270,7 @@ contract OrbitalPool {
      * @notice Gets total LP shares for a tick
      * @return Total LP shares for the tick
      */
-    function getTotalLpShares(uint256 p) external view returns (uint256) {
+    function getTotalLpShares(uint144 p) external view returns (uint144) {
         return activeTicks[p].totalLpShares;
     }
 
@@ -278,7 +278,7 @@ contract OrbitalPool {
      * @notice Gets accrued fees for a tick
      * @return Total fees accrued to the tick
      */
-    function getAccruedFees(uint256 p) external view returns (uint256) {
+    function getAccruedFees(uint144 p) external view returns (uint144) {
         return activeTicks[p].accruedFees;
     }
 
@@ -286,7 +286,7 @@ contract OrbitalPool {
      * @notice Gets the radius of a tick
      * @return Radius of the tick
      */
-    function getTickRadius(uint256 p) external view returns (uint128) {
+    function getTickRadius(uint144 p) external view returns (uint144) {
         return activeTicks[p].r;
     }
 
@@ -294,7 +294,7 @@ contract OrbitalPool {
      * @notice Gets the liquidity of a tick
      * @return Liquidity of the tick
      */
-    function getTickLiquidity(uint256 p) external view returns (uint256) {
+    function getTickLiquidity(uint144 p) external view returns (uint144) {
         return activeTicks[p].liquidity;
     }
 
@@ -302,7 +302,7 @@ contract OrbitalPool {
      * @notice Gets the status of a tick
      * @return Current status of the tick
      */
-    function getTickStatus(uint256 p) external view returns (TickStatus) {
+    function getTickStatus(uint144 p) external view returns (TickStatus) {
         return activeTicks[p].status;
     }
 
@@ -313,7 +313,7 @@ contract OrbitalPool {
     function _getTotalReserves()
         public
         view
-        returns (uint256[TOKENS_COUNT] memory)
+        returns (uint144[TOKENS_COUNT] memory)
     {
         return totalReserves;
     }
@@ -324,12 +324,12 @@ contract OrbitalPool {
      * @dev Creates new tick if it doesn't exist, updates existing tick otherwise
      */
     function addLiquidity(
-        uint256 p,
-        uint256[TOKENS_COUNT] memory amounts
+        uint144 p,
+        uint144[TOKENS_COUNT] memory amounts
     ) external {
         bool tickExists = activeTicks[p].r > 0;
-        uint128 previousRadius = tickExists ? activeTicks[p].r : 0;
-        uint256 previousTotalLpShares = tickExists
+        uint144 previousRadius = tickExists ? activeTicks[p].r : 0;
+        uint144 previousTotalLpShares = tickExists
             ? activeTicks[p].totalLpShares
             : 0;
         uint256 previousLiquidity = tickExists
@@ -347,7 +347,7 @@ contract OrbitalPool {
             }
         }
 
-        (uint128 newRadius, uint128 k) = mathHelper.createTickFromParameter(
+        (uint144 newRadius, uint144 k) = mathHelper.createTickFromParameter(
             p,
             reservesForRadiusCalc
         );
@@ -360,15 +360,19 @@ contract OrbitalPool {
 
         if (!tickExists) {
             Tick storage newTick = activeTicks[p];
-            newTick.r = newRadius;
-            newTick.k = k;
-            newTick.liquidity = uint256(newRadius) * uint256(newRadius);
+            newTick.r = newRadius << 48;
+            newTick.k = k << 48;
+            newTick.liquidity = uint144(
+                (uint256(newRadius) * uint256(newRadius)) >> 48
+            );
             newTick.reserves = reservesForRadiusCalc;
             newTick.status = tickStatus;
         } else {
-            activeTicks[p].r = newRadius;
+            activeTicks[p].r = newRadius << 48;
             activeTicks[p].reserves = reservesForRadiusCalc;
-            activeTicks[p].liquidity = uint256(newRadius) * uint256(newRadius);
+            activeTicks[p].liquidity = uint144(
+                (uint256(newRadius) * uint256(newRadius)) >> 48
+            );
             activeTicks[p].status = tickStatus;
         }
 
@@ -377,27 +381,29 @@ contract OrbitalPool {
                 tokens[i].safeTransferFrom(
                     msg.sender,
                     address(this),
-                    amounts[i]
+                    amounts[i] >> 48
                 );
             } else {
                 revert InvalidAmounts();
             }
         }
 
-        uint256 lpShares;
+        uint144 lpShares;
         if (!tickExists || previousTotalLpShares == 0) {
-            lpShares = uint256(newRadius) * uint256(newRadius);
+            lpShares = uint144(uint256(newRadius) * uint256(newRadius)) >> 48;
         } else {
-            uint256 newLiquidity = activeTicks[p].liquidity;
+            uint144 newLiquidity = activeTicks[p].liquidity;
             lpShares =
-                ((newLiquidity - previousLiquidity) * previousTotalLpShares) /
+                uint144(
+                    (newLiquidity - previousLiquidity) * previousTotalLpShares
+                ) /
                 previousLiquidity;
         }
 
         activeTicks[p].lpShares[msg.sender] += lpShares;
         activeTicks[p].totalLpShares += lpShares;
 
-        emit LiquidityAdded(amounts, lpShares, msg.sender, p);
+        emit LiquidityAdded(amounts >> 48, lpShares, msg.sender, p >> 48);
     }
 
     /**
@@ -405,35 +411,36 @@ contract OrbitalPool {
      * @param lpSharesToRemove Number of LP shares to remove
      * @dev Proportionally removes reserves and updates tick state
      */
-    function removeLiquidity(uint256 p, uint256 lpSharesToRemove) external {
+    function removeLiquidity(uint144 p, uint144 lpSharesToRemove) external {
         if (lpSharesToRemove == 0) revert InvalidAmounts();
 
         Tick storage tick = activeTicks[p];
         if (tick.r == 0) revert InvalidKValue();
 
-        uint256 userLpShares = tick.lpShares[msg.sender];
+        uint144 userLpShares = tick.lpShares[msg.sender];
         if (userLpShares < lpSharesToRemove) revert InsufficientLiquidity();
 
-        uint256 removalProportion = (lpSharesToRemove * PRECISION) /
-            tick.totalLpShares;
+        uint144 removalProportion = uint144(
+            (lpSharesToRemove << 48) / tick.totalLpShares
+        );
 
-        uint256[TOKENS_COUNT] memory amountsToReturn;
-        uint256[TOKENS_COUNT] memory newReserves;
+        uint144[TOKENS_COUNT] memory amountsToReturn;
+        uint144[TOKENS_COUNT] memory newReserves;
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            amountsToReturn[i] =
-                (tick.reserves[i] * removalProportion) /
-                PRECISION;
+            amountsToReturn[i] = ((tick.reserves[i] * removalProportion) >> 48);
             newReserves[i] = tick.reserves[i] - amountsToReturn[i];
         }
 
-        (uint128 newRadius, uint128 k) = mathHelper.createTickFromParameters(
+        (uint144 newRadius, uint144 k) = mathHelper.createTickFromParameters(
             p,
             newReserves
         );
 
-        tick.r = newRadius;
+        tick.r = newRadius << 48;
         tick.reserves = newReserves;
-        tick.liquidity = uint256(newRadius) * uint256(newRadius);
+        tick.liquidity = uint144(
+            (uint256(newRadius) * uint256(newRadius)) >> 48
+        );
         tick.lpShares[msg.sender] -= lpSharesToRemove;
         tick.totalLpShares -= lpSharesToRemove;
 
@@ -441,11 +448,11 @@ contract OrbitalPool {
 
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             if (amountsToReturn[i] > 0) {
-                tokens[i].safeTransfer(msg.sender, amountsToReturn[i]);
+                tokens[i].safeTransfer(msg.sender, amountsToReturn[i] >> 48);
             }
         }
 
-        emit LiquidityRemoved(amountsToReturn, msg.sender, p);
+        emit LiquidityRemoved(amountsToReturn >> 48, msg.sender, p >> 48);
     }
 
     /**
@@ -635,29 +642,23 @@ contract OrbitalPool {
     }
 
     function checkInvariants(
-        uint128 r,
-        uint128 k,
-        uint256[TOKENS_COUNT] calldata amounts
+        uint144 r,
+        uint144 k,
+        uint144[TOKENS_COUNT] calldata amounts
     ) internal returns (TickStatus) {
         uint256 sumOfDifferenceOfReserves = 0;
         uint256 sum = 0;
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            sum += amounts[i];
-            uint256 difference = r - amounts[i];
-            sumOfDifferenceOfReserves += difference * difference;
+            sum += uint256(amounts[i]);
+            uint256 difference = uint256(r) - uint256(amounts[i]);
+            sumOfDifferenceOfReserves += (difference * difference) >> 48;
         }
-        uint256 invariant = uint256(r) * uint256(r);
-        if (
-            sumOfDifferenceOfReserves < invariant - 1 ||
-            sumOfDifferenceOfReserves > invariant + 1
-        ) {
+        uint256 invariant = (uint256(r) * uint256(r)) >> 48;
+        if (sumOfDifferenceOfReserves != invariant) {
             revert UnsatisfiedInvariant();
         }
-        uint256 lhs = (sum * PRECISION) / SQRT5_SCALED;
-        return
-            (lhs >= k - 1 && lhs <= k + 1)
-                ? TickStatus.Boundary
-                : TickStatus.Interior;
+        uint256 lhs = (sum << 48) / SQRT5_SCALED;
+        return (lhs == uint256(k)) ? TickStatus.Boundary : TickStatus.Interior;
     }
 
     /**

@@ -4,11 +4,11 @@ pragma solidity 0.8.30;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface IOrbitalMathHelper {
+interface IOrbitalMATH_HELPER {
     function sqrtQ96X48(uint144 y) external pure returns (uint144);
 
     function getTickParameters(
-        uint144 depeg_limit,
+        uint144 depegLimit,
         uint144 reserve
     ) external pure returns (uint144, uint144);
 
@@ -18,23 +18,23 @@ interface IOrbitalMathHelper {
     ) external pure returns (uint144);
 
     function solveTorusInvariant(
-        uint144 sum_interior_reserves,
-        uint144 interior_consolidated_radius,
-        uint144 boundary_consolidated_radius,
-        uint144 boundary_total_k_bound,
-        uint144 token_in_index,
-        uint144 token_out_index,
-        uint144 amount_in_after_fee,
-        uint144[] memory total_reserves
+        uint144 sumInteriorReserves,
+        uint144 interiorConsolidatedRadius,
+        uint144 boundaryConsolidatedRadius,
+        uint144 boundaryTotalKBound,
+        uint144 tokenInIndex,
+        uint144 tokenOutIndex,
+        uint144 amountInAfterFee,
+        uint144[] memory totalReserves
     ) external view returns (uint144);
 
     function solveQuadraticInvariant(
-        uint144 delta_linear,
+        uint144 deltaLinear,
         uint144[] memory reserves,
-        uint144 token_in_index,
-        uint144 token_out_index,
-        uint144 consolidated_radius,
-        uint144 k_cross
+        uint144 tokenInIndex,
+        uint144 tokenOutIndex,
+        uint144 consolidatedRadius,
+        uint144 kCross
     ) external pure returns (uint144);
 }
 
@@ -50,11 +50,11 @@ contract OrbitalPool {
 
     uint256 public immutable TOKENS_COUNT; // This is not in Q96.48 format
     uint144 public immutable ROOT_N;
-    IOrbitalMathHelper public immutable mathHelper;
+    IOrbitalMATH_HELPER public immutable MATH_HELPER;
     IERC20[] public tokens;
     uint144[] public totalReserves;
     mapping(uint144 p => Tick) public activeTicks;
-    uint144[] public allTicks;
+    uint144[] public allP;
 
     /**
      * @notice Status of a tick in the pool
@@ -134,41 +134,29 @@ contract OrbitalPool {
         uint144 fee
     );
 
-    /**
-     * @notice Emitted when a tick's status changes
-     * @param oldStatus Previous status
-     * @param newStatus New status
-     */
-    event TickStatusChanged(
-        uint144 p,
-        TickStatus oldStatus,
-        TickStatus newStatus
-    );
-
     error InvalidKValue();
     error SameToken();
     error InvalidLength();
     error InvalidAmounts();
-    error TickAlreadyExists();
     error InsufficientLiquidity();
-    error InvalidTokenIndex();
     error SlippageExceeded();
-    error MathHelperError(string reason);
     error NumericalError();
     error UnsatisfiedInvariant();
+    error NoInteriorLiquidity();
+    error InvalidReserves();
 
     /**
      * @notice Initializes the Orbital pool
      * @param _tokens Array of ERC20 tokens for the pool
-     * @param _mathHelperAddress Address of the Stylus math helper contract
+     * @param mathHelperAddress Address of the Stylus math helper contract
      */
-    constructor(IERC20[] memory _tokens, address _mathHelperAddress) {
+    constructor(IERC20[] memory _tokens, address mathHelperAddress) {
         require(_tokens.length > 0, "At least one token required");
         TOKENS_COUNT = _tokens.length;
-        ROOT_N = _sqrtQ96X48(TOKENS_COUNT);
+        ROOT_N = _sqrtQ96X48(uint144(TOKENS_COUNT));
         tokens = _tokens;
         totalReserves = new uint144[](_tokens.length);
-        mathHelper = IOrbitalMathHelper(_mathHelperAddress);
+        MATH_HELPER = IOrbitalMATH_HELPER(mathHelperAddress);
     }
 
     function _toDynamic(
@@ -182,7 +170,7 @@ contract OrbitalPool {
         uint144[] memory reserves
     ) internal returns (uint144) {
         uint144[] memory dyn = _toDynamic(reserves);
-        (bool ok, bytes memory ret) = address(mathHelper).call(
+        (bool ok, bytes memory ret) = address(MATH_HELPER).call(
             abi.encodeWithSignature("calculateRadius(uint144[])", dyn)
         );
         if (!ok || ret.length == 0) revert NumericalError();
@@ -190,23 +178,23 @@ contract OrbitalPool {
     }
 
     function _solveQuadraticInvariant(
-        uint144 delta_linear,
+        uint144 deltaLinear,
         uint144[] memory reserves,
-        uint144 token_in_index,
-        uint144 token_out_index,
-        uint144 consolidated_radius,
-        uint144 k_cross
+        uint144 tokenInIndex,
+        uint144 tokenOutIndex,
+        uint144 consolidatedRadius,
+        uint144 kCross
     ) internal returns (uint144) {
         uint144[] memory dyn = _toDynamic(reserves);
-        (bool ok, bytes memory ret) = address(mathHelper).call(
+        (bool ok, bytes memory ret) = address(MATH_HELPER).call(
             abi.encodeWithSignature(
                 "solveQuadraticInvariant(uint144,uint144[],uint144,unt144,uint144,uint144)",
-                delta_linear,
-                reserves,
-                token_in_index,
-                token_out_index,
-                consolidated_radius,
-                k_cross
+                deltaLinear,
+                dyn,
+                tokenInIndex,
+                tokenOutIndex,
+                consolidatedRadius,
+                kCross
             )
         );
         if (!ok || ret.length == 0) revert NumericalError();
@@ -217,7 +205,7 @@ contract OrbitalPool {
         uint144 r,
         uint144 k
     ) internal returns (uint144) {
-        (bool ok, bytes memory ret) = address(mathHelper).call(
+        (bool ok, bytes memory ret) = address(MATH_HELPER).call(
             abi.encodeWithSignature(
                 "calculateBoundaryTickS(uint144,uint144)",
                 r,
@@ -229,7 +217,7 @@ contract OrbitalPool {
     }
 
     function _sqrtQ96X48(uint144 x) internal returns (uint144) {
-        (bool ok, bytes memory ret) = address(mathHelper).call(
+        (bool ok, bytes memory ret) = address(MATH_HELPER).call(
             abi.encodeWithSignature("sqrtQ96X48(uint144)", x)
         );
         if (!ok || ret.length == 0) revert NumericalError();
@@ -240,7 +228,7 @@ contract OrbitalPool {
         uint144 p,
         uint144 reserveAmount
     ) internal returns (uint144, uint144) {
-        (bool ok, bytes memory ret) = address(mathHelper).call(
+        (bool ok, bytes memory ret) = address(MATH_HELPER).call(
             abi.encodeWithSignature(
                 "getTickParameters(uint144,uint144)",
                 p,
@@ -262,7 +250,7 @@ contract OrbitalPool {
         uint144[] memory _totalReserves
     ) internal returns (uint144) {
         uint144[] memory dyn = _toDynamic(_totalReserves);
-        (bool ok, bytes memory ret) = address(mathHelper).call(
+        (bool ok, bytes memory ret) = address(MATH_HELPER).call(
             abi.encodeWithSignature(
                 "solveTorusInvariant(uint144,uint144,uint144,uint144,uint144,uint144,uint144,uint144[])",
                 sumInteriorReserves,
@@ -297,14 +285,6 @@ contract OrbitalPool {
      */
     function getTotalLpShares(uint144 p) external view returns (uint144) {
         return activeTicks[p].totalLpShares;
-    }
-
-    /**
-     * @notice Gets accrued fees for a tick
-     * @return Total fees accrued to the tick
-     */
-    function getAccruedFees(uint144 p) external view returns (uint144) {
-        return activeTicks[p].accruedFees;
     }
 
     /**
@@ -346,7 +326,6 @@ contract OrbitalPool {
      */
     function addLiquidity(uint144 p, uint144[] memory amounts) external {
         bool tickExists = activeTicks[p].r > 0;
-        uint144 previousRadius = tickExists ? activeTicks[p].r : 0;
         uint144 previousTotalLpShares = tickExists
             ? activeTicks[p].totalLpShares
             : 0;
@@ -390,7 +369,7 @@ contract OrbitalPool {
             }
             newTick.status = tickStatus;
 
-            allTicks.push(p);
+            allP.push(p);
         } else {
             Tick storage tick = activeTicks[p];
             tick.r = newRadius;
@@ -432,7 +411,11 @@ contract OrbitalPool {
         activeTicks[p].lpShares[msg.sender] += lpShares;
         activeTicks[p].totalLpShares += lpShares;
 
-        emit LiquidityAdded(amounts >> 48, lpShares, msg.sender, p >> 48);
+        uint144[] memory shiftedAmounts = new uint144[](amounts.length);
+        for (uint256 i = 0; i < amounts.length; i++) {
+            shiftedAmounts[i] = amounts[i] >> 48;
+        }
+        emit LiquidityAdded(shiftedAmounts, lpShares, msg.sender, p >> 48);
     }
 
     /**
@@ -459,7 +442,10 @@ contract OrbitalPool {
             newReserves[i] = tick.reserves[i] - amountsToReturn[i];
         }
 
-        (uint144 newRadius, uint144 k) = _calculateTickParams(p, newReserves);
+        (uint144 newRadius, uint144 k) = _calculateTickParams(
+            p,
+            newReserves[0]
+        );
 
         tick.r = newRadius;
         tick.k = k;
@@ -471,10 +457,11 @@ contract OrbitalPool {
         tick.totalLpShares -= lpSharesToRemove;
 
         if (tick.totalLpShares == 0) {
-            _removeTickFromAllTicks(p);
+            _removeTickFromAllP(p);
         }
 
         TickStatus tickStatus = checkInvariants(newRadius, k, newReserves);
+        tick.status = tickStatus;
 
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             if (amountsToReturn[i] > 0) {
@@ -483,14 +470,18 @@ contract OrbitalPool {
             }
         }
 
-        emit LiquidityRemoved(amountsToReturn >> 48, msg.sender, p >> 48);
+        uint144[] memory shiftedAmounts = new uint144[](TOKENS_COUNT);
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            shiftedAmounts[i] = amountsToReturn[i] >> 48;
+        }
+        emit LiquidityRemoved(shiftedAmounts, msg.sender, p >> 48);
     }
 
     function checkInvariants(
         uint144 r,
         uint144 k,
-        uint144[] calldata amounts
-    ) internal returns (TickStatus) {
+        uint144[] memory amounts
+    ) internal view returns (TickStatus) {
         uint256 sumOfDifferenceOfReserves = 0;
         uint256 sum = 0;
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
@@ -513,15 +504,15 @@ contract OrbitalPool {
     }
 
     /**
-     * @notice Removes a tick from the allTicks array
+     * @notice Removes a tick from the allP array
      * @param p The tick parameter to remove
-     * @dev Helper function to maintain the allTicks array when ticks are emptied
+     * @dev Helper function to maintain the allP array when ticks are emptied
      */
-    function _removeTickFromAllTicks(uint144 p) internal {
-        for (uint256 i = 0; i < allTicks.length; i++) {
-            if (allTicks[i] == p) {
-                allTicks[i] = allTicks[allTicks.length - 1];
-                allTicks.pop();
+    function _removeTickFromAllP(uint144 p) internal {
+        for (uint256 i = 0; i < allP.length; i++) {
+            if (allP[i] == p) {
+                allP[i] = allP[allP.length - 1];
+                allP.pop();
                 break;
             }
         }
@@ -576,9 +567,10 @@ contract OrbitalPool {
 
             uint144 alphaIntNormAfterSwap = 0;
             for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-                alphaIntNormAfterSwap +=
+                alphaIntNormAfterSwap += uint144(
                     (uint256(hypotheticalReserves[i]) << 48) /
-                    interiorTickData.consolidatedRadius;
+                        interiorTickData.consolidatedRadius
+                );
             }
 
             (uint144 kIntMin, uint144 kBoundMax) = calculateKBounds();
@@ -603,15 +595,12 @@ contract OrbitalPool {
                 break;
             }
 
-            (
-                bool directionOfSwapping,
-                uint144 kCross
-            ) = determineDirectionAndKCross(
-                    alphaIntNormBeforeSwap,
-                    alphaIntNormAfterSwap,
-                    kIntMin,
-                    kBoundMax
-                );
+            uint144 kCross = determineDirectionAndKCross(
+                alphaIntNormBeforeSwap,
+                alphaIntNormAfterSwap,
+                kIntMin,
+                kBoundMax
+            );
 
             uint144 delta = computeDeltaToCrossBoundary(
                 alphaIntNormBeforeSwap,
@@ -665,8 +654,9 @@ contract OrbitalPool {
         totalReserves[tokenOut] -= deltaOut;
 
         uint256 interiorLiquiditySum = 0;
-        for (uint256 i = 0; i < activeTicks.length; i++) {
-            Tick storage tick = activeTicks[i];
+        for (uint256 i = 0; i < allP.length; i++) {
+            uint144 p = allP[i];
+            Tick storage tick = activeTicks[p];
             if (tick.status == TickStatus.Interior) {
                 interiorLiquiditySum += tick.liquidity;
             }
@@ -675,8 +665,9 @@ contract OrbitalPool {
             revert NoInteriorLiquidity();
         }
 
-        for (uint256 i = 0; i < activeTicks.length; i++) {
-            Tick storage tick = activeTicks[i];
+        for (uint256 i = 0; i < allP.length; i++) {
+            uint144 p = allP[i];
+            Tick storage tick = activeTicks[p];
             if (tick.status == TickStatus.Interior) {
                 uint256 share = (uint256(tick.liquidity) << 48) /
                     interiorLiquiditySum;
@@ -696,21 +687,17 @@ contract OrbitalPool {
     }
 
     function _flipTickStatus(uint144 kCross) internal {
-        for (uint256 i = 0; i < activeTicks.length; i++) {
-            Tick storage tick = activeTicks[i];
-
+        for (uint256 i = 0; i < allP.length; i++) {
+            uint144 p = allP[i];
+            Tick storage tick = activeTicks[p];
             if (tick.r == 0) continue;
             uint144 kNorm = uint144((uint256(tick.k) << 48) / tick.r);
 
             if (kNorm == kCross) {
                 if (tick.status == TickStatus.Interior) {
                     tick.status = TickStatus.Boundary;
-                    // Reduce consolidated radius and liquidity accordingly
-                    // Update any global counters/aggregations here
                 } else if (tick.status == TickStatus.Boundary) {
                     tick.status = TickStatus.Interior;
-                    // Increase consolidated radius and liquidity accordingly
-                    // Update any global counters/aggregations here
                 }
                 break;
             }
@@ -722,19 +709,10 @@ contract OrbitalPool {
         uint144 alphaIntNormAfter,
         uint144 kIntMin,
         uint144 kBoundMax
-    )
-        internal
-        pure
-        returns (
-            bool direction, // 1 for increasing alpha, 0 for decreasing
-            uint144 kCross
-        )
-    {
+    ) internal pure returns (uint144 kCross) {
         if (alphaIntNormAfter > alphaIntNormBefore) {
-            direction = 1;
             kCross = kIntMin;
         } else {
-            direction = 0;
             kCross = kBoundMax;
         }
     }
@@ -770,7 +748,7 @@ contract OrbitalPool {
         if (a > b) {
             return a - b;
         } else {
-            b - a;
+            return b - a;
         }
     }
 
@@ -782,8 +760,9 @@ contract OrbitalPool {
         kIntMin = type(uint144).max;
         kBoundMax = 0;
 
-        for (uint256 i = 0; i < activeTicks.length; i++) {
-            Tick storage tick = activeTicks[i];
+        for (uint256 i = 0; i < allP.length; i++) {
+            uint144 p = allP[i];
+            Tick storage tick = activeTicks[p];
 
             if (tick.r == 0) continue;
 
@@ -843,8 +822,9 @@ contract OrbitalPool {
             ConsolidatedTickData memory boundaryData
         )
     {
-        for (uint256 i = 0; i < activeTicks.length; i++) {
-            Tick storage tick = activeTicks[i];
+        for (uint256 i = 0; i < allP.length; i++) {
+            uint144 p = allP[i];
+            Tick storage tick = activeTicks[p];
 
             if (tick.r == 0) continue;
 
@@ -856,7 +836,7 @@ contract OrbitalPool {
                     interiorData.totalReserves[j] += tick.reserves[j];
                 }
             } else {
-                uint256 s = _callBoundaryTickS(tick.r, tick.k);
+                uint144 s = _callBoundaryTickS(tick.r, tick.k);
                 boundaryData.consolidatedRadius += s;
                 boundaryData.totalLiquidity += tick.liquidity;
                 boundaryData.tickCount++;
@@ -870,7 +850,7 @@ contract OrbitalPool {
 
     function computeAlphaIntNorm(
         ConsolidatedTickData memory tickData
-    ) internal returns (uint144 alpha) {
+    ) internal view returns (uint144 alpha) {
         alpha = 0;
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             alpha +=

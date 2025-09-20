@@ -11,7 +11,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @author Orbital Protocol
  */
 contract OrbitalFactory {
-    address public immutable mathHelperAddress;
+    address public immutable MATH_HELPER_ADDRESS;
     address[] public pools;
     mapping(address => PoolInfo) public poolInfo;
 
@@ -32,14 +32,13 @@ contract OrbitalFactory {
 
     /**
      * @notice Initializes the factory
-     * @param _mathHelperAddress Address of the Stylus math helper contract
      */
-    constructor(address _mathHelperAddress) {
+    constructor(address mathHelperAddress) {
         require(
-            _mathHelperAddress != address(0),
+            mathHelperAddress != address(0),
             "Invalid math helper address"
         );
-        mathHelperAddress = _mathHelperAddress;
+        MATH_HELPER_ADDRESS = mathHelperAddress;
     }
 
     /**
@@ -59,7 +58,7 @@ contract OrbitalFactory {
         // Create new pool
         bytes memory bytecode = abi.encodePacked(
             type(OrbitalPool).creationCode,
-            abi.encode(tokens, mathHelperAddress)
+            abi.encode(tokens, MATH_HELPER_ADDRESS)
         );
 
         bytes32 salt = keccak256(
@@ -104,12 +103,5 @@ contract OrbitalFactory {
      */
     function getAllPools() external view returns (address[] memory) {
         return pools;
-    }
-
-    function getPoolInfo(
-        address pool
-    ) external view returns (PoolInfo memory info) {
-        require(poolInfo[pool].creator != address(0), "Pool not found");
-        return poolInfo[pool];
     }
 }

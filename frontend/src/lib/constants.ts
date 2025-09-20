@@ -53,7 +53,7 @@ export const TOKENS = [
 // Pool configuration
 export const POOL_CONFIG = {
   address: "0x83EC719A6F504583d0F88CEd111cB8e8c0956431", // Orbital AMM Pool (redeployed)
-  mathHelper: "0x112F137fcB7fA9Ed84A54767aD4d555904F274d9", // Math Helper
+  MATH_HELPER: "0x112F137fcB7fA9Ed84A54767aD4d555904F274d9", // Math Helper
   fee: 0.003, // 0.3%
   maxSlippage: 0.05, // 5%
   minLiquidity: 1000,

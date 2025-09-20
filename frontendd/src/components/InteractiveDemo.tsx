@@ -131,15 +131,15 @@ const OrbitalVisualization = ({ phase }: OrbitalVisualizationProps) => {
         <svg width="300" height="300" className="absolute">
           <defs>
             <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#f97316" stopOpacity="0.8" />
-              <stop offset="70%" stopColor="#eab308" stopOpacity="0.2" />
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
+              <stop offset="70%" stopColor="#06b6d4" stopOpacity="0.2" />
               <stop offset="100%" stopColor="#000000" stopOpacity="0" />
             </radialGradient>
             
             <linearGradient id="orbitalPath" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f97316" stopOpacity="0.6" />
-              <stop offset="50%" stopColor="#eab308" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#f97316" stopOpacity="0.4" />
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.6" />
+              <stop offset="50%" stopColor="#06b6d4" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.4" />
             </linearGradient>
 
             <filter id="softGlow">
@@ -191,7 +191,7 @@ const OrbitalVisualization = ({ phase }: OrbitalVisualizationProps) => {
                     cx={x}
                     cy={y}
                     r="4"
-                    fill="#f97316"
+                    fill="#3b82f6"
                     filter="url(#softGlow)"
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ 
@@ -237,7 +237,7 @@ const OrbitalVisualization = ({ phase }: OrbitalVisualizationProps) => {
               cy="150"
               r="30"
               fill="none"
-              stroke="#f97316"
+              stroke="#3b82f6"
               strokeWidth="3"
               strokeOpacity="0.8"
               animate={{
@@ -271,7 +271,7 @@ const OrbitalVisualization = ({ phase }: OrbitalVisualizationProps) => {
                     y1="150"
                     x2={startX}
                     y2={startY}
-                    stroke="#fbbf24"
+                    stroke="#06b6d4"
                     strokeWidth="2"
                     strokeOpacity="0.8"
                     animate={{
@@ -297,7 +297,7 @@ const OrbitalVisualization = ({ phase }: OrbitalVisualizationProps) => {
             cy="150" 
             r="45" 
             fill="none" 
-            stroke="#f97316" 
+            stroke="#3b82f6" 
             strokeWidth="2" 
             strokeDasharray="283"
             strokeDashoffset="0"

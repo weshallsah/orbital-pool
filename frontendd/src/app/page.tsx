@@ -81,56 +81,49 @@ const UniteDefiLanding = () => {
       <Navigation />
 
       {/* Hero Section */}
-      <section className="relative z-10 px-6 py-24 min-h-[85vh] flex items-center">
+      <section className="relative z-10 px-6 py-12 min-h-[90vh] flex flex-col justify-center">
         <HeroVideoBackground />
-        <div className="max-w-7xl mx-auto w-full relative">
-          {/* Stats Grid - Higher up position (where text was) */}
-          <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 w-[90vw] max-w-6xl">
-              {stats.map((stat, index) => (
-                <div key={index} className="group text-center p-6 bg-neutral-900/30 backdrop-blur-sm border border-neutral-800/50 rounded-2xl hover:bg-neutral-900/50 hover:border-neutral-700/60 transition-all duration-300 transform hover:scale-105 cursor-pointer">
-                  <div className={`text-2xl md:text-3xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent mb-2 group-hover:scale-110 transition-transform duration-300 font-[family-name:var(--font-unbounded)]`}>
-                    {stat.value}
-                  </div>
-                  <div className="text-neutral-400 text-xs font-medium group-hover:text-neutral-300 transition-colors duration-300 font-[family-name:var(--font-spline-sans-mono)]">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-            </div>
+        <div className="max-w-7xl mx-auto w-full relative flex flex-col items-center justify-center min-h-[80vh]">
           
-          {/* UNCOMMENT AND ADJUST THE SECTION BELOW */}
-          <div className="absolute bottom-16 left-8 max-w-2xl mt-6">
-            <h1 className="text-6xl md:text-8xl font-bold mb-8 leading-tight">
+          {/* Hero Title - Moved up and centered */}
+          <div className="text-center mb-12 mt-16">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
               <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-600 bg-clip-text text-transparent">
                 ORBITAL
               </span>
-              <br />
-              <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent animate-pulse transition-all duration-500 hover:brightness-125 cursor-pointer" style={{display: 'inline-block'}}>
+              <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent transition-all duration-500 hover:brightness-125 cursor-pointer ml-4" style={{display: 'inline-block'}}>
                 AMM
               </span>
               <span className="bg-gradient-to-r from-white via-neutral-100 to-white bg-clip-text text-transparent"> Protocol</span>
             </h1>
-            <p className="text-lg text-neutral-300 mt-4 max-w-xl">
+            <p className="text-lg md:text-xl text-neutral-300 max-w-3xl mx-auto leading-relaxed">
               Revolutionary Stablecoin AMM using spherical geometry and orbital mechanics. Trade with optimal capital efficiency through mathematical innovation.
             </p>
           </div>
-          {/* 
-          ADJUSTMENT GUIDE:
-          - Change "bottom-12" to adjust distance from bottom (bottom-8, bottom-16, bottom-20, etc.)
-          - Change "mt-8" to adjust top margin (mt-4, mt-6, mt-10, mt-12, etc.)
-          - Change "text-5xl md:text-7xl" to adjust font size:
-            * Smaller: text-4xl md:text-6xl
-            * Current: text-5xl md:text-7xl  
-            * Original: text-6xl md:text-8xl
-            * Larger: text-7xl md:text-9xl
-          */}
+
+          {/* Stats Grid - Centered below title */}
+          <div className="w-full max-w-6xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+              {stats.map((stat, index) => (
+                <div key={index} className="group text-center p-4 md:p-6 bg-neutral-900/30 backdrop-blur-sm border border-neutral-800/50 rounded-2xl hover:bg-neutral-900/50 hover:border-neutral-700/60 transition-all duration-300 transform hover:scale-105 cursor-pointer">
+                  <div className={`text-xl md:text-2xl lg:text-3xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent mb-2 group-hover:scale-110 transition-transform duration-300 font-[family-name:var(--font-unbounded)]`}>
+                    {stat.value}
+                  </div>
+                  <div className="text-neutral-400 text-xs md:text-sm font-medium group-hover:text-neutral-300 transition-colors duration-300 font-[family-name:var(--font-spline-sans-mono)]">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <a href="#features" aria-label="Scroll to features" className="absolute bottom-12 left-1/2 transform -translate-x-1/2 animate-bounce cursor-pointer group">
-          <div className="p-3 bg-neutral-900/30 backdrop-blur-sm border border-neutral-800/50 rounded-full group-hover:bg-neutral-900/50 transition-all duration-300">
-            <ChevronDown className="w-6 h-6 text-blue-400 group-hover:text-cyan-300" />
-          </div>
-        </a>
+        {/* Scroll Down Arrow - Centered at bottom */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+          <a href="#features" aria-label="Scroll to features" className="animate-bounce cursor-pointer group">
+            <div className="p-3 bg-neutral-900/30 backdrop-blur-sm border border-neutral-800/50 rounded-full group-hover:bg-neutral-900/50 transition-all duration-300">
+              <ChevronDown className="w-6 h-6 text-blue-400 group-hover:text-cyan-300" />
+            </div>
+          </a>
+        </div>
       </section>
 
       {/* Features Section */}

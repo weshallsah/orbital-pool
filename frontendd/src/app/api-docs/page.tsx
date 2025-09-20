@@ -6,16 +6,15 @@ import { Button } from '@/components/ui/Button';
 import { 
   Code, 
   Terminal, 
+  Copy, 
+  Check, 
   Zap, 
   Database, 
-  ChevronRight,
-  Copy,
-  Check,
-  ExternalLink,
-  Activity,
+  Activity, 
   BarChart3,
   Users,
-  TrendingUp
+  TrendingUp,
+  ExternalLink
 } from 'lucide-react';
 
 const ApiDocsPage = () => {
@@ -130,7 +129,8 @@ const ApiDocsPage = () => {
                   language="endpoint"
                   code="http://localhost:8000"
                 />
-                <p className="text-neutral-400 text-sm mt-2">No authentication needed - everything's public.</p>
+                <p className="text-neutral-400">Complete REST API reference and integration guide</p>
+                <p className="text-neutral-400 text-sm mt-2">No authentication needed - everything&apos;s public.</p>
               </div>
 
               <div>
@@ -180,7 +180,7 @@ const ApiDocsPage = () => {
             <EndpointCard
               method="GET"
               endpoint="/health"
-              description="Check if everything's working."
+              description="Check if everything&apos;s working."
               example="curl http://localhost:8000/health"
               response={`{
   "status": "healthy",

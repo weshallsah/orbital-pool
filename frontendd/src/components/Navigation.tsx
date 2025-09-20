@@ -3,8 +3,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X, ExternalLink, ArrowUpDown } from 'lucide-react';
-import { Button } from './ui/Button';
+import { 
+  Menu, 
+  X, 
+  Zap,
+  ArrowUpDown
+} from 'lucide-react';
 import { CustomConnectButton, MobileCustomConnectButton } from './CustomConnectButton';
 
 const Navigation: React.FC = () => {

@@ -1,20 +1,12 @@
 'use client'
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount } from 'wagmi';
-import { useSwap } from '@/hooks/useOrbitalPool';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { formatTokenAmount } from '@/lib/utils';
 import { 
   ArrowUpDown, 
-  Settings, 
-  ChevronDown, 
-  RefreshCw,
-  Check,
-  Layers,
-  Zap
+  Settings
 } from 'lucide-react';
 import { ethers } from 'ethers';
 
@@ -25,12 +17,26 @@ interface SwapState {
   minAmountOut: string;
 }
 
-interface OrbitalToken {
-  index: number;
-  symbol: string;
-  name: string;
-  address: string;
-}
+// Mock hook for swap functionality
+const useSwap = () => {
+  return {
+    mutateAsync: async (params: unknown) => {
+      console.log('Swap:', params);
+      return Promise.resolve({ 
+        success: true, 
+        transaction_data: { 
+          to: '0x83EC719A6F504583d0F88CEd111cB8e8c0956431',
+          data: '0x',
+          gas: 200000,
+          gasPrice: '100000000',
+          value: '0'
+        } 
+      });
+    },
+    isLoading: false
+  };
+};
+
 
 const OrbitalSwapPage = () => {
   const { address, isConnected } = useAccount();

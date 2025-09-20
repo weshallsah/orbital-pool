@@ -1,24 +1,10 @@
 'use client'
 import React, { useState } from 'react';
-import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import Navigation from '@/components/Navigation';
 import { 
-  Book, 
-  Code, 
-  Zap, 
-  Globe, 
-  Shield, 
-  ChevronRight,
-  ExternalLink,
-  Copy,
-  Check,
-  FileText,
-  Terminal,
-  Cpu,
-  Network,
-  Lock,
-  Eye
+  FileText, Terminal, Code, Copy, Check, ChevronRight, 
+  Shield, Eye, Network, Cpu, Lock, Zap, Book
 } from 'lucide-react';
 
 const DocumentationPage = () => {
@@ -91,7 +77,7 @@ const DocumentationPage = () => {
                 </div>
                 <div>
                   <h3 className="text-2xl font-semibold">Protocol Documentation</h3>
-                  <p className="text-neutral-400">Learn about Orbital's revolutionary spherical AMM design</p>
+                  <p className="text-neutral-400">Learn about Orbital&apos;s revolutionary spherical AMM design</p>
                 </div>
               </div>
               <div className="flex items-center text-blue-400 text-sm group-hover:text-cyan-300 transition-colors">
@@ -169,7 +155,7 @@ const DocumentationPage = () => {
                       </div>
                       <div className="flex items-center text-sm">
                         <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>
-                        <span className="text-neutral-300">Newton's method for numerical stability</span>
+                        <span className="text-neutral-300">Newton&apos;s method for numerical stability</span>
                       </div>
                     </div>
                   </div>
@@ -186,7 +172,7 @@ const DocumentationPage = () => {
                       Torus Invariant
                     </h4>
                     <p className="text-neutral-400 text-sm mb-4">
-                      The core mathematical principle behind Orbital's price discovery mechanism.
+                      The core mathematical principle behind Orbital&apos;s price discovery mechanism.
                     </p>
                     <CodeBlock
                       id="torus-invariant"
@@ -253,9 +239,9 @@ K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
                       lines: '874 lines', 
                       icon: Cpu,
                       color: 'cyan',
-                      description: 'Stylus contract for mathematical computations using Newton\'s method',
+                      description: 'Stylus contract for mathematical computations using Newton&apos;s method',
                       features: [
-                        'Torus invariant solving using Newton\'s method',
+                        'Torus invariant solving using Newton&apos;s method',
                         'Radius calculations for tick positioning',
                         'Boundary tick S value calculations',
                         'Robust numerical methods with multiple fallbacks',

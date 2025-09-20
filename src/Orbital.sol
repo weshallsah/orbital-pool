@@ -5,26 +5,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IOrbitalMathHelper {
-    function convertToQ96X48(uint144 value) external pure returns (uint144);
-
-    function convertFromQ96X48(uint144 value) external pure returns (uint144);
-
-    function addQ96X48(uint144 a, uint144 b) external pure returns (uint144);
-
-    function subQ96X48(uint144 a, uint144 b) external pure returns (uint144);
-
-    function mulQ96X48(uint144 a, uint144 b) external pure returns (uint144);
-
-    function divQ96X48(uint144 a, uint144 b) external pure returns (uint144);
 
     function sqrtQ96X48(uint144 y) external pure returns (uint144);
-
-    function calculateRadius(uint144 reserve) external pure returns (uint144);
-
-    function calculateK(
-        uint144 depeg_limit,
-        uint144 radius
-    ) external pure returns (uint144);
 
     function getTickParameters(
         uint144 depeg_limit,
@@ -159,6 +141,7 @@ contract OrbitalPool {
     );
 
     error InvalidKValue();
+    error InvalidLength();
     error InvalidAmounts();
     error TickAlreadyExists();
     error InsufficientLiquidity();
@@ -176,6 +159,7 @@ contract OrbitalPool {
     constructor(IERC20[] memory _tokens, address _mathHelperAddress) {
         require(_tokens.length > 0, "At least one token required");
         TOKENS_COUNT = _tokens.length;
+        ROOT_N = _sqrtQ96X48(TOKENS_COUNT);
         tokens = _tokens;
         totalReserves = new uint144[](_tokens.length);
         mathHelper = IOrbitalMathHelper(_mathHelperAddress);
@@ -338,8 +322,9 @@ contract OrbitalPool {
             : 0;
         uint256 previousLiquidity = tickExists ? activeTicks[p].liquidity : 0;
 
-        require(amounts.length == TOKENS_COUNT, "Invalid amounts length");
-
+        if (amounts.length != TOKENS_COUNT) {
+            revert InvalidLength();
+        }
         uint144[] memory reservesForRadiusCalc = new uint144[](TOKENS_COUNT);
         if (!tickExists) {
             reservesForRadiusCalc = amounts;
@@ -351,9 +336,9 @@ contract OrbitalPool {
             }
         }
 
-        (, uint144 newRadius, uint144 k, ) = mathHelper.createTickFromParameter(
+        (uint144 newRadius, uint144 k) = mathHelper._calculateTickParams(
             p,
-            reservesForRadiusCalc
+            reservesForRadiusCalc[0]
         );
 
         TickStatus tickStatus = checkInvariants(

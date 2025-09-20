@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -461,6 +461,26 @@ contract OrbitalPool {
         emit LiquidityRemoved(amountsToReturn >> 48, msg.sender, p >> 48);
     }
 
+    function checkInvariants(
+        uint144 r,
+        uint144 k,
+        uint144[TOKENS_COUNT] calldata amounts
+    ) internal returns (TickStatus) {
+        uint256 sumOfDifferenceOfReserves = 0;
+        uint256 sum = 0;
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            sum += uint256(amounts[i]);
+            uint256 difference = uint256(r) - uint256(amounts[i]);
+            sumOfDifferenceOfReserves += (difference * difference) >> 48;
+        }
+        uint256 invariant = (uint256(r) * uint256(r)) >> 48;
+        if (sumOfDifferenceOfReserves != invariant) {
+            revert UnsatisfiedInvariant();
+        }
+        uint256 lhs = (sum << 48) / ROOT_N;
+        return (lhs == uint256(k)) ? TickStatus.Boundary : TickStatus.Interior;
+    }
+
     /**
      * @notice Removes a tick from the allTicks array
      * @param p The tick parameter to remove
@@ -486,49 +506,69 @@ contract OrbitalPool {
             revert();
         }
 
-        IERC20(tokens[tokenIn]).safeTransferFrom(
-            msg.sender,
-            address(this),
-            amountIn
-        );
+        tokens[tokenIn].safeTransferFrom(msg.sender, address(this), amountIn);
 
-        uint144 amountInAfterFee = (amountIn * (FEE_DENOMINATOR - SWAP_FEE)) /
+        uint144 amountRemaining = (amountIn * (FEE_DENOMINATOR - SWAP_FEE)) /
             FEE_DENOMINATOR;
 
-        (
-            ConsolidatedTickData memory interiorTickData,
+        uint144 totalAmountOut = 0;
 
-        ) = _getConsolidatedTickData();
+        while (amountRemaining > 0) {
+            (
+                ConsolidatedTickData memory interiorTickData,
 
-        uint144 alphaIntNormBeforeSwap = computeAlphaIntNorm(interiorTickData);
+            ) = _getConsolidatedTickData();
 
-        uint144 estimatedAmountOut = _calculateSwapOutput(
-            interiorTickData.totalReserves,
-            tokenIn,
-            tokenOut,
-            amountInAfterFee
-        );
+            uint144 alphaIntNormBeforeSwap = computeAlphaIntNorm(
+                interiorTickData
+            );
 
-        uint144[] memory hypotheticalReserves = new uint144[](TOKENS_COUNT);
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            hypotheticalReserves[i] = interiorTickData.totalReserves[i];
-        }
+            uint144 estimatedAmountOut = _calculateSwapOutput(
+                interiorTickData.totalReserves,
+                tokenIn,
+                tokenOut,
+                amountRemaining
+            );
 
-        hypotheticalReserves[tokenIn] += amountInAfterFee;
-        hypotheticalReserves[tokenOut] -= estimatedAmountOut;
+            uint144[] memory hypotheticalReserves = new uint144[](TOKENS_COUNT);
+            for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+                hypotheticalReserves[i] = interiorTickData.totalReserves[i];
+            }
+            hypotheticalReserves[tokenIn] += amountRemaining;
+            if (estimatedAmountOut > hypotheticalReserves[tokenOut]) {
+                revert InsufficientLiquidity();
+            }
+            hypotheticalReserves[tokenOut] -= estimatedAmountOut;
 
-        uint144 alphaIntNormAfterSwap = 0;
-        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-            alphaIntNormAfterSwap +=
-                (uint256(hypotheticalReserves[i]) << 48) /
-                interiorTickData.consolidatedRadius;
-        }
+            uint144 alphaIntNormAfterSwap = 0;
+            for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+                alphaIntNormAfterSwap +=
+                    (uint256(hypotheticalReserves[i]) << 48) /
+                    interiorTickData.consolidatedRadius;
+            }
 
-        (uint144 kIntMin, uint144 kBoundMax) = calculateKBounds();
+            (uint144 kIntMin, uint144 kBoundMax) = calculateKBounds();
 
-        if (
-            alphaIntNormAfterSwap > kBoundMax || alphaIntNormAfterSwap < kIntMin
-        ) {
+            bool crossing = (alphaIntNormAfterSwap > kBoundMax ||
+                alphaIntNormAfterSwap < kIntMin);
+
+            if (!crossing) {
+                uint144 amountOutFull = estimatedAmountOut;
+
+                _updateReserves(
+                    tokenIn,
+                    amountRemaining,
+                    tokenOut,
+                    amountOutFull
+                );
+
+                tokens[tokenOut].safeTransfer(msg.sender, amountOutFull);
+
+                totalAmountOut += amountOutFull;
+                amountRemaining = 0;
+                break;
+            }
+
             (
                 bool directionOfSwapping,
                 uint144 kCross
@@ -542,13 +582,115 @@ contract OrbitalPool {
             uint144 delta = computeDeltaToCrossBoundary(
                 alphaIntNormBeforeSwap,
                 kCross,
-                amountInAfterFee,
+                amountRemaining,
                 interiorTickData.consolidatedRadius,
                 interiorTickData.totalReserves,
                 tokenIn,
                 tokenOut
             );
-        } else {}
+
+            uint144 amountOutPartial = _calculateSwapOutput(
+                interiorTickData.totalReserves,
+                tokenIn,
+                tokenOut,
+                delta
+            );
+
+            _updateReserves(tokenIn, delta, tokenOut, amountOutPartial);
+
+            tokens[tokenOut].safeTransfer(msg.sender, amountOutPartial);
+
+            totalAmountOut += amountOutPartial;
+            amountRemaining -= delta;
+
+            _flipTickStatus(kCross);
+        }
+
+        if (totalAmountOut < minAmountOut) revert SlippageExceeded();
+
+        emit Swap(
+            msg.sender,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            totalAmountOut,
+            amountIn - amountRemaining
+        );
+    }
+
+    function _updateReserves(
+        uint144 tokenIn,
+        uint144 deltaIn,
+        uint144 tokenOut,
+        uint144 deltaOut
+    ) internal {
+        // Update global total reserves (assuming you track these)
+        totalReserves[tokenIn] += deltaIn;
+        require(
+            totalReserves[tokenOut] >= deltaOut,
+            "Insufficient global reserves"
+        );
+        totalReserves[tokenOut] -= deltaOut;
+
+        // Update reserves within each active interior tick proportionally
+        uint256 interiorLiquiditySum = 0;
+        for (uint256 i = 0; i < activeTicks.length; i++) {
+            Tick storage tick = activeTicks[i];
+            if (tick.status == TickStatus.Interior) {
+                interiorLiquiditySum += tick.liquidity;
+            }
+        }
+        require(interiorLiquiditySum > 0, "No interior liquidity");
+
+        // Distribute deltaIn and deltaOut proportionally among interior ticks
+        for (uint256 i = 0; i < activeTicks.length; i++) {
+            Tick storage tick = activeTicks[i];
+            if (tick.status == TickStatus.Interior) {
+                // Share of liquidity
+                uint256 share = (uint256(tick.liquidity) * 1e18) /
+                    interiorLiquiditySum;
+
+                // Apply delta amounts proportional to share
+                uint144 deltaInTick = uint144(
+                    (uint256(deltaIn) * share) / 1e18
+                );
+                uint144 deltaOutTick = uint144(
+                    (uint256(deltaOut) * share) / 1e18
+                );
+
+                // Update reserves in tick
+                tick.reserves[tokenIn] += deltaInTick;
+                require(
+                    tick.reserves[tokenOut] >= deltaOutTick,
+                    "Insufficient tick reserves"
+                );
+                tick.reserves[tokenOut] -= deltaOutTick;
+            }
+        }
+    }
+
+    function _flipTickStatus(uint144 kCross) internal {
+        for (uint256 i = 0; i < activeTicks.length; i++) {
+            Tick storage tick = activeTicks[i];
+
+            // Calculate normalized boundary for this tick
+            if (tick.r == 0) continue;
+            uint144 kNorm = uint144((uint256(tick.k) << 48) / tick.r);
+
+            if (kNorm == kCross) {
+                if (tick.status == TickStatus.Interior) {
+                    tick.status = TickStatus.Boundary;
+                    // Reduce consolidated radius and liquidity accordingly
+                    // Update any global counters/aggregations here
+                } else if (tick.status == TickStatus.Boundary) {
+                    tick.status = TickStatus.Interior;
+                    // Increase consolidated radius and liquidity accordingly
+                    // Update any global counters/aggregations here
+                }
+                // Exit after flipping the matched tick
+                break;
+            }
+        }
     }
 
     function determineDirectionAndKCross(

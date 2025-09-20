@@ -5,7 +5,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IOrbitalMathHelper {
-
     function sqrtQ96X48(uint144 y) external pure returns (uint144);
 
     function getTickParameters(
@@ -234,7 +233,7 @@ contract OrbitalPool {
         uint144[] memory dyn = _toDynamic(_totalReserves);
         (bool ok, bytes memory ret) = address(mathHelper).call(
             abi.encodeWithSignature(
-                "solveTorusInvariant(uint144,uint144,uint144,uint144,uint144[],uint144,uint144,uint144)",
+                "solveTorusInvariant(uint144,uint144,uint144,uint144,uint144,uint144,uint144,uint144[])",
                 sumInteriorReserves,
                 interiorR,
                 boundaryR,
@@ -336,7 +335,7 @@ contract OrbitalPool {
             }
         }
 
-        (uint144 newRadius, uint144 k) = mathHelper._calculateTickParams(
+        (uint144 newRadius, uint144 k) = _calculateTickParams(
             p,
             reservesForRadiusCalc[0]
         );
@@ -349,12 +348,11 @@ contract OrbitalPool {
 
         if (!tickExists) {
             Tick storage newTick = activeTicks[p];
-            newTick.r = newRadius << 48;
-            newTick.k = k << 48;
+            newTick.r = newRadius;
+            newTick.k = k;
             newTick.liquidity = uint144(
                 (uint256(newRadius) * uint256(newRadius)) >> 48
             );
-            newTick.reserves = new uint144[](TOKENS_COUNT);
             for (uint256 i = 0; i < TOKENS_COUNT; i++) {
                 newTick.reserves[i] = reservesForRadiusCalc[i];
             }
@@ -459,7 +457,7 @@ contract OrbitalPool {
     function checkInvariants(
         uint144 r,
         uint144 k,
-        uint144[TOKENS_COUNT] calldata amounts
+        uint144[] calldata amounts
     ) internal returns (TickStatus) {
         uint256 sumOfDifferenceOfReserves = 0;
         uint256 sum = 0;
@@ -469,11 +467,17 @@ contract OrbitalPool {
             sumOfDifferenceOfReserves += (difference * difference) >> 48;
         }
         uint256 invariant = (uint256(r) * uint256(r)) >> 48;
-        if (sumOfDifferenceOfReserves != invariant) {
+        if (
+            sumOfDifferenceOfReserves > invariant + 10 ||
+            sumOfDifferenceOfReserves < invariant - 10
+        ) {
             revert UnsatisfiedInvariant();
         }
         uint256 lhs = (sum << 48) / ROOT_N;
-        return (lhs == uint256(k)) ? TickStatus.Boundary : TickStatus.Interior;
+        return
+            (lhs < uint256(k) + 10 && lhs > uint256(k) - 10)
+                ? TickStatus.Boundary
+                : TickStatus.Interior;
     }
 
     /**
@@ -777,7 +781,7 @@ contract OrbitalPool {
     }
 
     function _calculateSwapOutput(
-        uint144[TOKENS_COUNT] memory reserves,
+        uint144[] memory reserves,
         uint144 tokenIn,
         uint144 tokenOut,
         uint144 amountIn
@@ -787,8 +791,13 @@ contract OrbitalPool {
             ConsolidatedTickData memory boundaryData
         ) = _getConsolidatedTickData();
 
+        // Calculate sum of interior reserves
+        uint144 sumInteriorReserves = 0;
+        for (uint256 i = 0; i < TOKENS_COUNT; i++) {
+            sumInteriorReserves += interiorData.totalReserves[i];
+        }
         uint144 amount = _callSolveTorusInvariant(
-            interiorData.totalReserves,
+            sumInteriorReserves,
             interiorData.consolidatedRadius,
             boundaryData.consolidatedRadius,
             boundaryData.totalKBound,

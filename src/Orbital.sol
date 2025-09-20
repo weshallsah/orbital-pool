@@ -27,6 +27,15 @@ interface IOrbitalMathHelper {
         uint144 amount_in_after_fee,
         uint144[] memory total_reserves
     ) external view returns (uint144);
+
+    function solveQuadraticInvariant(
+        uint144 delta_linear,
+        uint144[] memory reserves,
+        uint144 token_in_index,
+        uint144 token_out_index,
+        uint144 consolidated_radius,
+        uint144 k_cross
+    ) external pure returns (uint144);
 }
 
 /**
@@ -42,8 +51,6 @@ contract OrbitalPool {
     uint256 public immutable TOKENS_COUNT; // This is not in Q96.48 format
     uint144 public immutable ROOT_N;
     IOrbitalMathHelper public immutable mathHelper;
-    uint144 public constant SWAP_FEE = 3 << 48;
-    uint144 public constant FEE_DENOMINATOR = 1000 << 48;
     IERC20[] public tokens;
     uint144[] public totalReserves;
     mapping(uint144 p => Tick) public activeTicks;
@@ -67,7 +74,6 @@ contract OrbitalPool {
         uint144 k; /// @dev Plane constant for the tick
         uint144 liquidity; /// @dev Total liquidity in the tick
         uint144 totalLpShares; /// @dev Total LP shares issued
-        uint144 accruedFees; /// @dev Total fees accrued
         TickStatus status; /// @dev Current status of the tick
         mapping(address => uint144) lpShares; /// @dev LP shares per address
         uint144[] reserves; /// @dev Reserves of each token
@@ -140,6 +146,7 @@ contract OrbitalPool {
     );
 
     error InvalidKValue();
+    error SameToken();
     error InvalidLength();
     error InvalidAmounts();
     error TickAlreadyExists();
@@ -177,6 +184,30 @@ contract OrbitalPool {
         uint144[] memory dyn = _toDynamic(reserves);
         (bool ok, bytes memory ret) = address(mathHelper).call(
             abi.encodeWithSignature("calculateRadius(uint144[])", dyn)
+        );
+        if (!ok || ret.length == 0) revert NumericalError();
+        return abi.decode(ret, (uint144));
+    }
+
+    function _solveQuadraticInvariant(
+        uint144 delta_linear,
+        uint144[] memory reserves,
+        uint144 token_in_index,
+        uint144 token_out_index,
+        uint144 consolidated_radius,
+        uint144 k_cross
+    ) internal returns (uint144) {
+        uint144[] memory dyn = _toDynamic(reserves);
+        (bool ok, bytes memory ret) = address(mathHelper).call(
+            abi.encodeWithSignature(
+                "solveQuadraticInvariant(uint144,uint144[],uint144,unt144,uint144,uint144)",
+                delta_linear,
+                reserves,
+                token_in_index,
+                token_out_index,
+                consolidated_radius,
+                k_cross
+            )
         );
         if (!ok || ret.length == 0) revert NumericalError();
         return abi.decode(ret, (uint144));
@@ -227,7 +258,7 @@ contract OrbitalPool {
         uint144 boundaryK,
         uint144 tokenIn,
         uint144 tokenOut,
-        uint144 amountInAfterFee,
+        uint144 amountIn,
         uint144[] memory _totalReserves
     ) internal returns (uint144) {
         uint144[] memory dyn = _toDynamic(_totalReserves);
@@ -240,7 +271,7 @@ contract OrbitalPool {
                 boundaryK,
                 tokenIn,
                 tokenOut,
-                amountInAfterFee,
+                amountIn,
                 dyn
             )
         );
@@ -341,13 +372,14 @@ contract OrbitalPool {
         );
 
         TickStatus tickStatus = checkInvariants(
-            k,
             newRadius,
+            k,
             reservesForRadiusCalc
         );
 
         if (!tickExists) {
             Tick storage newTick = activeTicks[p];
+            newTick.p = p;
             newTick.r = newRadius;
             newTick.k = k;
             newTick.liquidity = uint144(
@@ -360,14 +392,17 @@ contract OrbitalPool {
 
             allTicks.push(p);
         } else {
-            activeTicks[p].r = newRadius << 48;
+            Tick storage tick = activeTicks[p];
+            tick.r = newRadius;
+            tick.k = k;
+            tick.p = p;
             for (uint256 i = 0; i < TOKENS_COUNT; i++) {
-                activeTicks[p].reserves[i] = reservesForRadiusCalc[i];
+                tick.reserves[i] = reservesForRadiusCalc[i];
             }
-            activeTicks[p].liquidity = uint144(
+            tick.liquidity = uint144(
                 (uint256(newRadius) * uint256(newRadius)) >> 48
             );
-            activeTicks[p].status = tickStatus;
+            tick.status = tickStatus;
         }
 
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
@@ -385,12 +420,12 @@ contract OrbitalPool {
 
         uint144 lpShares;
         if (!tickExists || previousTotalLpShares == 0) {
-            lpShares = uint144(uint256(newRadius) * uint256(newRadius)) >> 48;
+            lpShares = uint144((uint256(newRadius) * uint256(newRadius)) >> 48);
         } else {
             uint144 newLiquidity = activeTicks[p].liquidity;
             lpShares = uint144(
-                ((newLiquidity - previousLiquidity) * previousTotalLpShares) /
-                    previousLiquidity
+                ((uint256(newLiquidity) - uint256(previousLiquidity)) *
+                    uint256(previousTotalLpShares)) / previousLiquidity
             );
         }
 
@@ -414,9 +449,8 @@ contract OrbitalPool {
         uint144 userLpShares = tick.lpShares[msg.sender];
         if (userLpShares < lpSharesToRemove) revert InsufficientLiquidity();
 
-        uint144 removalProportion = uint144(
-            (lpSharesToRemove << 48) / tick.totalLpShares
-        );
+        uint144 removalProportion = (lpSharesToRemove << 48) /
+            tick.totalLpShares;
 
         uint144[] memory amountsToReturn = new uint144[](TOKENS_COUNT);
         uint144[] memory newReserves = new uint144[](TOKENS_COUNT);
@@ -425,12 +459,10 @@ contract OrbitalPool {
             newReserves[i] = tick.reserves[i] - amountsToReturn[i];
         }
 
-        (uint144 newRadius, uint144 k) = mathHelper.createTickFromParameters(
-            p,
-            newReserves
-        );
+        (uint144 newRadius, uint144 k) = _calculateTickParams(p, newReserves);
 
-        tick.r = newRadius << 48;
+        tick.r = newRadius;
+        tick.k = k;
         tick.reserves = newReserves;
         tick.liquidity = uint144(
             (uint256(newRadius) * uint256(newRadius)) >> 48
@@ -496,23 +528,26 @@ contract OrbitalPool {
     }
 
     function swap(
+        uint144 amountIn,
         uint144 tokenIn,
         uint144 tokenOut,
-        uint144 amountIn,
         uint144 minAmountOut
     ) external {
         if (tokenIn == tokenOut) {
-            revert();
+            revert SameToken();
         }
 
-        tokens[tokenIn].safeTransferFrom(msg.sender, address(this), amountIn);
+        tokens[tokenIn].safeTransferFrom(
+            msg.sender,
+            address(this),
+            amountIn >> 48
+        );
 
-        uint144 amountRemaining = (amountIn * (FEE_DENOMINATOR - SWAP_FEE)) /
-            FEE_DENOMINATOR;
+        uint144 amountRemaining = amountIn;
 
         uint144 totalAmountOut = 0;
 
-        while (amountRemaining > 0) {
+        while (amountRemaining >= (1 << 48)) {
             (
                 ConsolidatedTickData memory interiorTickData,
 
@@ -623,15 +658,12 @@ contract OrbitalPool {
         uint144 tokenOut,
         uint144 deltaOut
     ) internal {
-        // Update global total reserves (assuming you track these)
         totalReserves[tokenIn] += deltaIn;
-        require(
-            totalReserves[tokenOut] >= deltaOut,
-            "Insufficient global reserves"
-        );
+        if (totalReserves[tokenOut] < deltaOut) {
+            revert InvalidReserves();
+        }
         totalReserves[tokenOut] -= deltaOut;
 
-        // Update reserves within each active interior tick proportionally
         uint256 interiorLiquiditySum = 0;
         for (uint256 i = 0; i < activeTicks.length; i++) {
             Tick storage tick = activeTicks[i];
@@ -639,30 +671,25 @@ contract OrbitalPool {
                 interiorLiquiditySum += tick.liquidity;
             }
         }
-        require(interiorLiquiditySum > 0, "No interior liquidity");
+        if (interiorLiquiditySum == 0) {
+            revert NoInteriorLiquidity();
+        }
 
-        // Distribute deltaIn and deltaOut proportionally among interior ticks
         for (uint256 i = 0; i < activeTicks.length; i++) {
             Tick storage tick = activeTicks[i];
             if (tick.status == TickStatus.Interior) {
-                // Share of liquidity
-                uint256 share = (uint256(tick.liquidity) * 1e18) /
+                uint256 share = (uint256(tick.liquidity) << 48) /
                     interiorLiquiditySum;
 
-                // Apply delta amounts proportional to share
-                uint144 deltaInTick = uint144(
-                    (uint256(deltaIn) * share) / 1e18
-                );
+                uint144 deltaInTick = uint144((uint256(deltaIn) * share) >> 48);
                 uint144 deltaOutTick = uint144(
-                    (uint256(deltaOut) * share) / 1e18
+                    (uint256(deltaOut) * share) >> 48
                 );
 
-                // Update reserves in tick
                 tick.reserves[tokenIn] += deltaInTick;
-                require(
-                    tick.reserves[tokenOut] >= deltaOutTick,
-                    "Insufficient tick reserves"
-                );
+                if (tick.reserves[tokenOut] < deltaOut) {
+                    revert InvalidReserves();
+                }
                 tick.reserves[tokenOut] -= deltaOutTick;
             }
         }
@@ -672,7 +699,6 @@ contract OrbitalPool {
         for (uint256 i = 0; i < activeTicks.length; i++) {
             Tick storage tick = activeTicks[i];
 
-            // Calculate normalized boundary for this tick
             if (tick.r == 0) continue;
             uint144 kNorm = uint144((uint256(tick.k) << 48) / tick.r);
 
@@ -686,7 +712,6 @@ contract OrbitalPool {
                     // Increase consolidated radius and liquidity accordingly
                     // Update any global counters/aggregations here
                 }
-                // Exit after flipping the matched tick
                 break;
             }
         }
@@ -727,7 +752,7 @@ contract OrbitalPool {
             (uint256(consolidatedRadius) * absDiff(alphaCurrent, kCross)) >> 48
         );
 
-        deltaCross = solveQuadraticInvariant(
+        deltaCross = _solveQuadraticInvariant(
             deltaLinear,
             reserves,
             tokenIn,
@@ -791,11 +816,11 @@ contract OrbitalPool {
             ConsolidatedTickData memory boundaryData
         ) = _getConsolidatedTickData();
 
-        // Calculate sum of interior reserves
         uint144 sumInteriorReserves = 0;
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             sumInteriorReserves += interiorData.totalReserves[i];
         }
+
         uint144 amount = _callSolveTorusInvariant(
             sumInteriorReserves,
             interiorData.consolidatedRadius,
@@ -850,7 +875,7 @@ contract OrbitalPool {
         for (uint256 i = 0; i < TOKENS_COUNT; i++) {
             alpha +=
                 (tickData.totalReserves[i] << 48) /
-                tickData.consolidatedRadius;
+                ((tickData.consolidatedRadius * ROOT_N) >> 48);
         }
     }
 }

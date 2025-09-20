@@ -1,22 +1,20 @@
-# API Reference
+# API Documentation
 
-All the endpoints you can use.
+This page contains all the API endpoints of Orbital you can use as a developer.
 
-**Base URL**: `http://localhost:8000`
+**Base URL**: FRONTEND_URL
 
-No authentication needed - everything's public.
-
-## Core Endpoints
+## Endpoints
 
 ### Health Check
 
-See if everything's working.
+This endpoint checks whether the server is working fine or not.
 
 ```http
 GET /health
 ```
 
-**Response:**
+**Success Response (200):**
 ```json
 {
   "status": "healthy",
@@ -26,17 +24,22 @@ GET /health
 }
 ```
 
+**Response Fields:**
+- `status` - The working status of server
+- `pool_address` - The address of the Orbital Pool
+- `network` - The network where the server is running
+- `chain_id` - The chain ID of the network
 ---
 
 ### Get Tokens
 
-See what tokens are available.
+This endpoints fetches all the tokens available in the protocol.
 
 ```http
 GET /tokens
 ```
 
-**Response:**
+**Success Response (200):**
 ```json
 {
   "tokens": {
@@ -66,16 +69,16 @@ GET /tokens
 ```
 
 **Response Fields:**
-- `tokens` - Object mapping token indices to token info
-- `tokens[index].address` - Token contract address
-- `tokens[index].symbol` - Token symbol
-- `pool_address` - Orbital Pool contract address
+- `tokens` - The object mapping token indices to token info
+- `tokens[index].address` - The token contract address
+- `tokens[index].symbol` - The token symbol
+- `pool_address` - The address of the Orbital Pool
 
 ---
 
 ### Execute Token Swap
 
-Generate transaction data for swapping tokens.
+This endpoint generates quote for a swap transaction.
 
 ```http
 POST /swap
@@ -93,11 +96,11 @@ POST /swap
 ```
 
 **Request Fields:**
-- `token_in_index` *(integer)* - Input token index (0-4)
-- `token_out_index` *(integer)* - Output token index (0-4)
-- `amount_in` *(string)* - Input amount in wei (18 decimals)
-- `min_amount_out` *(string)* - Minimum output amount in wei
-- `user_address` *(string)* - User's wallet address (checksummed)
+- `token_in_index` - The index of the inoput token
+- `token_out_index` - The index of the output token
+- `amount_in` - The input amount (in wei)
+- `min_amount_out` - The minimmum input amount the user will accept (in wei)
+- `user_address` - The wallet address of the user
 
 **Success Response (200):**
 ```json
@@ -135,12 +138,12 @@ POST /swap
 ```
 
 **Response Fields:**
-- `success` - Operation success status
-- `token_in` - Input token information
-- `token_out` - Output token information  
-- `transaction_data` - Unsigned transaction object for signing
-- `gas_estimate` - Estimated gas units required
-- `gas_price` - Current gas price in wei
+- `success` - The success status
+- `token_in` - The input token
+- `token_out` - The output token  
+- `transaction_data` - The 'unsigned' transaction object
+- `gas_estimate` - The estimated uints of gas required
+- `gas_price` - The current gas price (in wei)
 
 ---
 

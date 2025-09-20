@@ -1,0 +1,44 @@
+type LiquidityAdded @entity(immutable: true) {
+  id: Bytes!
+  provider: Bytes! # address
+  k: BigInt! # uint256
+  amounts: [BigInt!]! # uint256[5]
+  lpShares: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LiquidityRemoved @entity(immutable: true) {
+  id: Bytes!
+  provider: Bytes! # address
+  k: BigInt! # uint256
+  amounts: [BigInt!]! # uint256[5]
+  lpShares: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Swap @entity(immutable: true) {
+  id: Bytes!
+  trader: Bytes! # address
+  tokenIn: BigInt! # uint256
+  tokenOut: BigInt! # uint256
+  amountIn: BigInt! # uint256
+  amountOut: BigInt! # uint256
+  fee: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type TickStatusChanged @entity(immutable: true) {
+  id: Bytes!
+  k: BigInt! # uint256
+  oldStatus: Int! # uint8
+  newStatus: Int! # uint8
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}

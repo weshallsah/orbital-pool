@@ -1,0 +1,265 @@
+"""
+Subgraph client for Orbital AMM analytics
+Handles GraphQL queries to The Graph protocol
+"""
+
+import requests
+import os
+from typing import Dict, List, Optional
+import json
+from datetime import datetime, timedelta
+
+class OrbitalSubgraphClient:
+    def __init__(self):
+        # Use environment variable for subgraph URL
+        self.endpoint = os.getenv('ORBITAL_SUBGRAPH_URL', 
+            'https://api.thegraph.com/subgraphs/name/your-github/orbital-amm-subgraph')
+        self.timeout = 30
+        
+    def query(self, query_string: str, variables: Dict = None) -> Dict:
+        """Execute GraphQL query against subgraph"""
+        try:
+            payload = {
+                'query': query_string,
+                'variables': variables or {}
+            }
+            
+            response = requests.post(
+                self.endpoint, 
+                json=payload,
+                timeout=self.timeout,
+                headers={'Content-Type': 'application/json'}
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            if 'errors' in result:
+                raise Exception(f"GraphQL error: {result['errors']}")
+                
+            return result
+            
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Subgraph request failed: {str(e)}")
+        except json.JSONDecodeError as e:
+            raise Exception(f"Invalid JSON response: {str(e)}")
+    
+    def get_protocol_stats(self) -> Dict:
+        """Get overall Orbital AMM protocol statistics"""
+        query = """
+        query {
+          orbitalProtocol(id: "orbital-protocol") {
+            totalValueLockedUSD
+            totalVolumeUSD
+            totalSwapCount
+            totalTokenCount
+            protocolFeeRate
+            orbitalPool {
+              id
+              tokenCount
+              swapCount
+              totalVolumeUSD
+              supportedTokens {
+                symbol
+                name
+                priceUSD
+                totalVolumeUSD
+              }
+            }
+          }
+        }
+        """
+        
+        result = self.query(query)
+        protocol_data = result.get('data', {}).get('orbitalProtocol')
+        
+        if not protocol_data:
+            return {
+                "totalValueLockedUSD": "0",
+                "totalVolumeUSD": "0", 
+                "totalSwapCount": "0",
+                "totalTokenCount": "5",  # Your 5 test tokens
+                "protocolFeeRate": "0.003"
+            }
+            
+        return protocol_data
+    
+    def get_recent_swaps(self, limit: int = 100, skip: int = 0) -> List[Dict]:
+        """Get recent swaps with pagination"""
+        query = """
+        query GetRecentSwaps($first: Int!, $skip: Int!) {
+          swaps(
+            first: $first
+            skip: $skip
+            orderBy: timestamp
+            orderDirection: desc
+          ) {
+            id
+            tokenIn { 
+              symbol 
+              name
+              id
+            }
+            tokenOut { 
+              symbol 
+              name 
+              id
+            }
+            amountIn
+            amountOut
+            amountInUSD
+            amountOutUSD
+            priceImpact
+            sender
+            recipient
+            timestamp
+            blockNumber
+            gasUsed
+            gasPrice
+            feeAmount
+            feeAmountUSD
+          }
+        }
+        """
+        
+        result = self.query(query, {'first': min(limit, 1000), 'skip': skip})
+        return result.get('data', {}).get('swaps', [])
+    
+    def get_token_stats(self, token_address: str = None, token_index: int = None) -> Dict:
+        """Get statistics for specific token by address or index"""
+        
+        # If token_index provided, convert to address using your TOKENS mapping
+        if token_index is not None and token_address is None:
+            from app import TOKENS  # Import your TOKENS dict
+            if token_index in TOKENS:
+                token_address = TOKENS[token_index]['address']
+            else:
+                raise ValueError(f"Invalid token index: {token_index}")
+        
+        if not token_address:
+            raise ValueError("Either token_address or token_index must be provided")
+            
+        query = """
+        query GetToken($id: ID!) {
+          token(id: $id) {
+            id
+            symbol
+            name
+            decimals
+            priceUSD
+            totalVolumeUSD
+            totalLiquidityUSD
+            txCount
+            isActive
+            addedAtTimestamp
+            swapsIn(first: 5, orderBy: timestamp, orderDirection: desc) {
+              amountIn
+              amountOut
+              timestamp
+            }
+            swapsOut(first: 5, orderBy: timestamp, orderDirection: desc) {
+              amountIn
+              amountOut
+              timestamp
+            }
+          }
+        }
+        """
+        
+        result = self.query(query, {'id': token_address.lower()})
+        return result.get('data', {}).get('token')
+    
+    def get_daily_volume(self, days: int = 30) -> List[Dict]:
+        """Get daily volume data for charts"""
+        query = """
+        query GetDailyData($first: Int!) {
+          poolDayDatas(
+            first: $first
+            orderBy: date
+            orderDirection: desc
+          ) {
+            id
+            date
+            dailyVolumeUSD
+            dailySwapCount
+            dailyActiveUsers
+            totalValueLockedUSD
+            dailyFeesUSD
+            tokenCount
+          }
+        }
+        """
+        
+        result = self.query(query, {'first': days})
+        return result.get('data', {}).get('poolDayDatas', [])
+    
+    def get_user_stats(self, user_address: str) -> Dict:
+        """Get statistics for specific user"""
+        query = """
+        query GetUser($id: ID!) {
+          user(id: $id) {
+            id
+            totalSwaps
+            totalVolumeUSD
+            totalFeesUSD
+            firstSwapTimestamp
+            lastSwapTimestamp
+            swaps(first: 10, orderBy: timestamp, orderDirection: desc) {
+              tokenIn { symbol }
+              tokenOut { symbol }
+              amountInUSD
+              timestamp
+            }
+          }
+        }
+        """
+        
+        result = self.query(query, {'id': user_address.lower()})
+        return result.get('data', {}).get('user')
+    
+    def get_top_tokens_by_volume(self, limit: int = 10) -> List[Dict]:
+        """Get top tokens by trading volume"""
+        query = """
+        query GetTopTokens($first: Int!) {
+          tokens(
+            first: $first
+            orderBy: totalVolumeUSD
+            orderDirection: desc
+            where: { isActive: true }
+          ) {
+            id
+            symbol
+            name
+            totalVolumeUSD
+            totalLiquidityUSD
+            txCount
+            priceUSD
+          }
+        }
+        """
+        
+        result = self.query(query, {'first': limit})
+        return result.get('data', {}).get('tokens', [])
+    
+    def get_swap_by_tx(self, tx_hash: str) -> List[Dict]:
+        """Get swaps from specific transaction"""
+        query = """
+        query GetSwapsByTx($txHash: String!) {
+          swaps(where: { transaction: $txHash }) {
+            id
+            tokenIn { symbol }
+            tokenOut { symbol }
+            amountIn
+            amountOut
+            amountInUSD
+            amountOutUSD
+            sender
+            recipient
+            timestamp
+            priceImpact
+          }
+        }
+        """
+        
+        result = self.query(query, {'txHash': tx_hash.lower()})
+        return result.get('data', {}).get('swaps', [])

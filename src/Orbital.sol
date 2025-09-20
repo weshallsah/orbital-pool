@@ -4,61 +4,48 @@ pragma solidity 0.8.30;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/**
- * @title IOrbitalMathHelper
- * @notice Interface for interacting with the deployed Stylus Math Helper contract
- * @dev Provides mathematical computations for the Orbital AMM including torus invariant solving
- * @dev This interface should match the deployed Stylus contract on Arbitrum Sepolia testnet
- * @dev The Stylus contract (orbitalHelper.rs) handles complex mathematical calculations
- */
 interface IOrbitalMathHelper {
-    /**
-     * @notice Solves the torus invariant to calculate swap output amount
-     * @param sum_interior_reserves Sum of interior reserves from consolidated data
-     * @param interior_consolidated_radius Interior consolidated radius
-     * @param boundary_consolidated_radius Boundary consolidated radius
-     * @param boundary_total_k_bound Boundary total k bound
-     * @param total_reserves Current total reserves across all ticks
-     * @param token_in_index Index of the input token (0-4)
-     * @param token_out_index Index of the output token (0-4)
-     * @param amount_in_after_fee Input amount after fee deduction
-     * @return The computed output amount
-     */
-    function solveTorusInvariant(
-        uint256 sum_interior_reserves,
-        uint128 interior_consolidated_radius,
-        uint128 boundary_consolidated_radius,
-        uint128 boundary_total_k_bound,
-        uint64 token_in_index,
-        uint64 token_out_index,
-        uint256 amount_in_after_fee,
-        uint256[] memory total_reserves
-    ) external returns (uint256);
+    function convertToQ96X48(uint144 value) external pure returns (uint144);
 
-    /**
-     * @notice Calculates the radius of a tick from its reserves
-     * @param reserves Array of token reserves for the tick
-     * @return The calculated radius
-     */
-    function calculateRadius(
-        uint256[] memory reserves
-    ) external returns (uint256);
+    function convertFromQ96X48(uint144 value) external pure returns (uint144);
 
-    /**
-     * @notice Calculates the s value for a boundary tick
-     * @param r The radius of the tick
-     * @param k The plane constant for the tick
-     * @return The calculated s value
-     */
+    function addQ96X48(uint144 a, uint144 b) external pure returns (uint144);
+
+    function subQ96X48(uint144 a, uint144 b) external pure returns (uint144);
+
+    function mulQ96X48(uint144 a, uint144 b) external pure returns (uint144);
+
+    function divQ96X48(uint144 a, uint144 b) external pure returns (uint144);
+
+    function sqrtQ96X48(uint144 y) external pure returns (uint144);
+
+    function calculateRadius(uint144 reserve) external pure returns (uint144);
+
+    function calculateK(
+        uint144 depeg_limit,
+        uint144 radius
+    ) external pure returns (uint144);
+
+    function getTickParameters(
+        uint144 depeg_limit,
+        uint144 reserve
+    ) external pure returns (uint144, uint144);
+
     function calculateBoundaryTickS(
-        uint128 r,
-        uint128 k
-    ) external returns (uint256);
+        uint144 radius,
+        uint144 k
+    ) external pure returns (uint144);
 
-    function createTickFromParameter(
-        uint256 p,
-        uint256 reserve_amount
-    ) external view returns (uint144[] memory, uint144, uint144, bool);
+    function solveTorusInvariant(
+        uint144 sum_interior_reserves,
+        uint144 interior_consolidated_radius,
+        uint144 boundary_consolidated_radius,
+        uint144 boundary_total_k_bound,
+        uint144 token_in_index,
+        uint144 token_out_index,
+        uint144 amount_in_after_fee,
+        uint144[] memory total_reserves
+    ) external view returns (uint144);
 }
 
 /**
@@ -72,10 +59,10 @@ contract OrbitalPool {
     using SafeERC20 for IERC20;
 
     uint256 public immutable TOKENS_COUNT; // This is not in Q96.48 format
-    uint256 public immutable ROOT_N;
+    uint144 public immutable ROOT_N;
     IOrbitalMathHelper public immutable mathHelper;
-    uint144 public constant SWAP_FEE = 3 << 47;
-    uint144 public constant FEE_DENOMINATOR = 100 << 48;
+    uint144 public constant SWAP_FEE = 3 << 48;
+    uint144 public constant FEE_DENOMINATOR = 1000 << 48;
     IERC20[] public tokens;
     uint144[] public totalReserves;
     mapping(uint144 p => Tick) public activeTicks;
@@ -206,7 +193,7 @@ contract OrbitalPool {
     ) internal returns (uint144) {
         uint144[] memory dyn = _toDynamic(reserves);
         (bool ok, bytes memory ret) = address(mathHelper).call(
-            abi.encodeWithSignature("calculateRadius(uint256[])", dyn)
+            abi.encodeWithSignature("calculateRadius(uint144[])", dyn)
         );
         if (!ok || ret.length == 0) revert NumericalError();
         return abi.decode(ret, (uint144));
@@ -218,7 +205,7 @@ contract OrbitalPool {
     ) internal returns (uint144) {
         (bool ok, bytes memory ret) = address(mathHelper).call(
             abi.encodeWithSignature(
-                "calculateBoundaryTickS(uint256,uint256)",
+                "calculateBoundaryTickS(uint144,uint144)",
                 r,
                 k
             )
@@ -227,8 +214,31 @@ contract OrbitalPool {
         return abi.decode(ret, (uint144));
     }
 
+    function _sqrtQ96X48(uint144 x) internal returns (uint144) {
+        (bool ok, bytes memory ret) = address(mathHelper).call(
+            abi.encodeWithSignature("sqrtQ96X48(uint144)", x)
+        );
+        if (!ok || ret.length == 0) revert NumericalError();
+        return abi.decode(ret, (uint144));
+    }
+
+    function _calculateTickParams(
+        uint144 p,
+        uint144 reserveAmount
+    ) internal returns (uint144, uint144) {
+        (bool ok, bytes memory ret) = address(mathHelper).call(
+            abi.encodeWithSignature(
+                "getTickParameters(uint144,uint144)",
+                p,
+                reserveAmount
+            )
+        );
+        if (!ok || ret.length == 0) revert NumericalError();
+        return abi.decode(ret, (uint144, uint144));
+    }
+
     function _callSolveTorusInvariant(
-        uint144 sumInterior,
+        uint144 sumInteriorReserves,
         uint144 interiorR,
         uint144 boundaryR,
         uint144 boundaryK,
@@ -240,8 +250,8 @@ contract OrbitalPool {
         uint144[] memory dyn = _toDynamic(_totalReserves);
         (bool ok, bytes memory ret) = address(mathHelper).call(
             abi.encodeWithSignature(
-                "solveTorusInvariant(uint256,uint256,uint256,uint256,uint256[],uint256,uint256,uint256)",
-                sumInterior,
+                "solveTorusInvariant(uint144,uint144,uint144,uint144,uint144[],uint144,uint144,uint144)",
+                sumInteriorReserves,
                 interiorR,
                 boundaryR,
                 boundaryK,

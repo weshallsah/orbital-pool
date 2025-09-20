@@ -17,13 +17,10 @@ Orbital is the AMM where capital efficiency doesn’t just scale, it warps!
 ## Key Features
 
 - **Multi-Token Stability Engine**: Seamlessly trade across three or more stablecoins in a single pool with no more fragmented liquidity.
-
 - **Warped Concentrated Liquidity**: Liquidity providers can laser-focus capital around $1, achieving maximum efficiency while still keeping markets resilient.
-
 - **Torus Invariant Model**: A breakthrough mathematical invariant that curves liquidity across dimensions, ensuring fair pricing even in extreme scenarios.
-
+- **Boundary-Aware Swaps**: Swaps automatically handle transitions between interior and boundary regions, ensuring correct pricing even at the edge of the liquidity surface.
 - **Fusion of Giants (Uniswap × Curve)**: Orbital takes Uniswap V3’s precision and Curve’s stability, merging them into a next-generation AMM.
-
 - **Powered by Arbitrum Stylus + Rust**: Our entire mathematical engine runs in Rust via Stylus, unlocking performance and gas efficiency for complex calculations.
 
 ## Mathematical Foundation
@@ -75,6 +72,20 @@ k ≥ (r × PRECISION) / SQRT5_SCALED
 Where:
 - `PRECISION = 1e15`
 - `SQRT5_SCALED = 2236067977499790`
+
+## Improvements Made in Open House
+
+### Core Protocol
+
+1. We employ `Q96.48` fixed-point arithmetic (instead of plain `uint256`) to improve precision in price and liquidity computations, especially across ticks.
+2. Paradigm’s Orbitals AMM assumes only one liquidity provider (LP) per tick, but our implementation supports multiple LPs per tick, enabling shared exposure at each tick boundary.
+3. We support trade segmentation across ticks, i.e, swaps that cross tick boundaries are split and executed part-by-part, matching Paradigm’s trade-segmentation design to ensure correct accounting of liquidity changes and slippage.
+4. Liquidity provision now allows liquidity providers to define depeg tolerance, so they can limit exposure to unstable stablecoins during swaps. This gives LPs more control over risk vs returns.
+
+### Expanding Orbital
+
+1. APIs & Documentation: We provide comprehensive developer APIs plus clear documentation, so other projects can integrate seamlessly with our Orbital-like pool mechanics.
+2. Agent-to-Agent & x402 Integration: Google’s Agent Payments Protocol (AP2), combined with Coinbase’s x402 extension, currently restricts agents to transact only in USDC. With Orbital, agents can seamlessly swap any supported stablecoin into USDC under the hood and then complete the payment. This means an agent can pay in any stablecoin of their choice, and the recipient still settles in their preferred form, preserving x402’s guarantees while adding flexibility and multi-stablecoin support.
 
 ## Contract Addresses
 

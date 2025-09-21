@@ -56,7 +56,7 @@ const UniteDefiLanding = () => {
     {
       icon: <Globe className="w-10 h-10" />,
       title: 'Spherical Geometry',
-      description: 'Uses spherical invariant K = ||r||² where reserves form vectors in n-dimensional space, enabling optimal capital efficiency.',
+      description: 'Uses spherical invariant where, enabling optimal capital efficiency.',
       gradient: 'from-blue-500 via-cyan-500 to-blue-600',
     },
     {

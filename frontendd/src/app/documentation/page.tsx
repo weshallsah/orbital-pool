@@ -21,6 +21,7 @@ import {
   Lock,
   Eye
 } from 'lucide-react';
+import Navigation from '@/components/Navigation';
 
 const DocumentationPage = () => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);

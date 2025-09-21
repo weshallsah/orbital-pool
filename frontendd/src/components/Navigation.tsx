@@ -34,7 +34,7 @@ const Navigation: React.FC = () => {
             alt="Orbital AMM Logo" 
             width={400}
             height={400}
-            className="h-10 w-auto object-contain group-hover:scale-105 transition-all duration-300"
+            className="h-20 w-auto object-contain group-hover:scale-105 transition-all duration-300"
             priority
           />
         </Link>

@@ -85,7 +85,7 @@ const FusionTimeline: React.FC = () => {
       subtitle: 'Concentrated Liquidity Benefits',
       description: 'By focusing liquidity where normal trading occurs and providing safety mechanisms for depeg events, Orbital achieves unprecedented capital efficiency.',
       details: [
-        'Up to 1000x capital efficiency vs uniform distribution',
+        'Multiple times more capital efficiency vs uniform distribution',
         'Smaller ticks focus on normal trading ranges',
         'Boundary ticks provide depeg protection',
         'Customizable exposure for different LP strategies',

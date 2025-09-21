@@ -1,71 +1,39 @@
 'use client'
-import React, { useState } from 'react';
-import { useAccount } from 'wagmi';
+import React, { useState, useEffect } from 'react';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import {
-  Info,
-  Layers
-} from 'lucide-react';
-import { ethers } from 'ethers';
+import { Info, Layers } from 'lucide-react';
+import { parseEther } from 'viem';
+import { ORBITAL_POOL_ADDRESS, ORBITAL_POOL_ABI, ORBITAL_TOKENS, DEFAULT_K_VALUE } from '@/lib/contracts';
 
 interface LiquidityState {
   amounts: string[];
   tolerance: string;
   mode: 'add' | 'remove';
+  kValue: string;
 }
-
-const useAddLiquidity = () => {
-  return {
-    mutate: async (params: unknown) => {
-      console.log('Add liquidity:', params);
-      // Mock implementation
-    },
-    mutateAsync: async (params: unknown) => {
-      console.log('Add liquidity async:', params);
-      // Mock implementation
-      return Promise.resolve({
-        success: true,
-        data: {
-          to: '0x83EC719A6F504583d0F88CEd111cB8e8c0956431',
-          data: '0x',
-          gas: 200000,
-          gasPrice: '100000000',
-          value: '0'
-        }
-      });
-    },
-    isLoading: false
-  };
-};
 
 const OrbitalLiquidityPage = () => {
   const { address, isConnected } = useAccount();
-  const addLiquidityMutation = useAddLiquidity();
-
-  // Real stablecoin tokens
-  const staticTokens = [
-    { index: 0, symbol: 'USDC', address: '0x4036B58f91F2A821cB56E2921213663f58db7e6c' },
-    { index: 1, symbol: 'USDT', address: '0x41906B6CBFC6a1bEd09311a88e7549a2eB34F325' },
-    { index: 2, symbol: 'DAI', address: '0x28f73c76Cb06ceAAA94Adce630f012531f5E80a9' },
-    { index: 3, symbol: 'FRAX', address: '0x153BD834089ad564fF33450A621EAC412cD4D8f0' },
-    { index: 4, symbol: 'LUSD', address: '0x987b031Bc36122867108da11686F66D22A9eB460' }
-  ];
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
 
   const [liquidityState, setLiquidityState] = useState<LiquidityState>({
     amounts: ['', '', '', '', ''],
     tolerance: '',
-    mode: 'add'
+    mode: 'add',
+    kValue: DEFAULT_K_VALUE // Default k value in Q96.48 format
   });
 
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Use static tokens - no API call needed
-  const orbitalTokens = staticTokens;
+  // Use the imported token configuration
+  const orbitalTokens = ORBITAL_TOKENS;
 
   // Token Icon Component for stablecoins
-  const TokenIcon = ({ symbol, size = 24 }: { symbol: string; size?: number }) => {
+  const TokenIcon = ({ symbol }: { symbol: string }) => {
     const getTokenColor = (symbol: string) => {
       switch (symbol) {
         case 'USDC': return 'from-blue-500 to-blue-600';
@@ -104,56 +72,56 @@ const OrbitalLiquidityPage = () => {
     setLiquidityState(prev => ({ ...prev, tolerance: sanitized }));
   };
 
-  // Execute add liquidity
+  // Execute add liquidity using the contract
   const executeAddLiquidity = async () => {
     if (
       !address ||
-      !liquidityState.amounts.some(amt => parseInt(amt) > 0) ||
+      !liquidityState.amounts.some((amt: string) => parseInt(amt) > 0) ||
       !liquidityState.tolerance ||
       isNaN(Number(liquidityState.tolerance)) ||
       Number(liquidityState.tolerance) <= 0
     ) return;
 
-    setIsLoading(true);
     try {
-      const liquidityRequest = {
-        amounts: liquidityState.amounts.map(amt =>
-          ethers.parseEther(amt || '0').toString()
-        ),
-        tolerance: parseFloat(liquidityState.tolerance),
-        user_address: address
-      };
+      // Convert amounts to wei (18 decimals) and then shift by 48 bits for Q96.48 format
+      const amountsInWei = liquidityState.amounts.map((amt: string) => {
+        const weiAmount = parseEther(amt || '0');
+        // Shift left by 48 bits for Q96.48 format
+        return weiAmount << BigInt(48);
+      });
 
-      const response = await addLiquidityMutation.mutateAsync(liquidityRequest);
+      // Convert kValue to proper format (already in Q96.48)
+      const kValue = BigInt(liquidityState.kValue);
 
-      if (response.success && response.data) {
-        // Get transaction data and send it
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
+      await writeContract({
+        address: ORBITAL_POOL_ADDRESS,
+        abi: ORBITAL_POOL_ABI,
+        functionName: 'addLiquidity',
+        args: [kValue, amountsInWei as [bigint, bigint, bigint, bigint, bigint]],
+      });
 
-        const tx = await signer.sendTransaction(response.data);
-        console.log('Add liquidity transaction sent:', tx.hash);
-
-        // Reset form
-        setLiquidityState(prev => ({
-          ...prev,
-          amounts: ['', '', '', '', ''],
-          tolerance: ''
-        }));
-
-        alert(`Liquidity added successfully! Transaction: ${tx.hash}`);
-      }
     } catch (error) {
       console.error('Add liquidity failed:', error);
       alert('Add liquidity failed: ' + (error as Error).message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
+  // Reset form when transaction is successful
+  useEffect(() => {
+    if (isSuccess) {
+      setLiquidityState((prev: LiquidityState) => ({
+        ...prev,
+        amounts: ['', '', '', '', ''],
+        tolerance: ''
+      }));
+      alert(`Liquidity added successfully! Transaction: ${hash}`);
+    }
+  }, [isSuccess, hash]);
+
   // No loading needed - everything is instant!
-  const hasAmounts = liquidityState.amounts.some(amt => parseInt(amt || '0') > 0);
+  const hasAmounts = liquidityState.amounts.some((amt: string) => parseInt(amt || '0') > 0);
   const hasTolerance = liquidityState.tolerance && !isNaN(Number(liquidityState.tolerance)) && Number(liquidityState.tolerance) > 0;
+  const isProcessing = isPending || isConfirming;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -260,11 +228,12 @@ const OrbitalLiquidityPage = () => {
               {/* Action Button */}
               <Button
                 onClick={executeAddLiquidity}
-                disabled={!isConnected || !hasAmounts || !hasTolerance || isLoading}
+                disabled={!isConnected || !hasAmounts || !hasTolerance || isProcessing}
                 className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
               >
                 {!isConnected ? 'Connect Wallet' :
-                  isLoading ? `${liquidityState.mode === 'add' ? 'Adding' : 'Removing'} Liquidity...` :
+                  isProcessing ? 
+                    (isPending ? 'Confirming...' : 'Processing Transaction...') :
                     !hasAmounts ? 'Enter Amount' :
                       !hasTolerance ? 'Enter Tolerance' :
                         `${liquidityState.mode === 'add' ? 'Add' : 'Remove'} Liquidity`}
@@ -290,7 +259,7 @@ const OrbitalLiquidityPage = () => {
 
           {/* Pool Info */}
           <div className="mt-6 text-center text-sm text-neutral-500">
-            <p>Pool Address: 0x83EC719A6F504583d0F88CEd111cB8e8c0956431</p>
+            <p>Pool Address: {ORBITAL_POOL_ADDRESS}</p>
             <p>Network: Arbitrum Sepolia</p>
           </div>
         </div>

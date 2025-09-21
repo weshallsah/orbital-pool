@@ -1,5 +1,5 @@
 // Orbital Pool Contract Configuration
-export const ORBITAL_POOL_ADDRESS = '0x3f69af823ff5eae878e7fc6ddd5d89d1d0d97313' as const;
+export const ORBITAL_POOL_ADDRESS = '0x8E27C670fA1D45a635e916F8bd60F7E5E1AcF19B' as const;
 
 export const ORBITAL_POOL_ABI = [
   {
@@ -47,11 +47,11 @@ export const ORBITAL_POOL_ABI = [
 
 // Token addresses from deployment
 export const ORBITAL_TOKENS = [
-  { index: 0, symbol: 'MUSDC-A', address: '0x05c99751d279c15b77f2e94e801d4dc74b62cd0d' },
-  { index: 1, symbol: 'MUSDC-B', address: '0x97987dcd3c11e2ea5bc3621fcf1be123e62ce4b0' },
-  { index: 2, symbol: 'MUSDC-C', address: '0xaf7ebb620eb7adf30134ec68555d8f4e2b9582ed' },
-  { index: 3, symbol: 'MUSDC-D', address: '0xe56b1e9a54c6a456a40dc48406e15df89eaa9bad' },
-  { index: 4, symbol: 'MUSDC-E', address: '0xcbe3de1332cd548dcf9a153d0196e73212cfc4e2' }
+  { index: 0, symbol: 'USDT', address: '0x4036B58f91F2A821cB56E2921213663f58db7e6c' },
+  { index: 1, symbol: 'USDC', address: '0x41906B6CBFC6a1bEd09311a88e7549a2eB34F325' },
+  { index: 2, symbol: 'DAI', address: '0x28f73c76Cb06ceAAA94Adce630f012531f5E80a9' },
+  { index: 3, symbol: 'FRAX', address: '0x153BD834089ad564fF33450A621EAC412cD4D8f0' },
+  { index: 4, symbol: 'LUSD', address: '0x153BD834089ad564fF33450A621EAC412cD4D8f0' }
 ] as const;
 
 // Default K value for liquidity provision (in Q96.48 format)

@@ -37,8 +37,8 @@ const FusionTimeline: React.FC = () => {
       subtitle: 'Reserve Vectors in Space',
       description: 'Orbital treats AMM reserves as vectors in n-dimensional space, where each token represents a dimension and reserves form a point on a spherical surface.',
       details: [
-        'Reserves represented as vector r⃗ = (x₁, x₂, ..., xₙ)',
-        'Spherical constraint ||r⃗||² = r² maintains constant sum',
+        'Reserves represented as vector r = (x₁, x₂, ..., xₙ)',
+        'Spherical constraint Σ(xᵢ - r)² = r² maintains constant sum',
         'Equal price point where all reserves are equal',
         'Geometric intuition enables visual understanding',
         'Scalable to any number of stablecoins'
@@ -66,14 +66,12 @@ const FusionTimeline: React.FC = () => {
     {
       id: 'mathematics',
       title: 'Spherical Invariant',
-      subtitle: 'K = ||r||² Mathematical Foundation',
-      description: 'The core invariant K = ||r||² = Σ(xᵢ²) maintains constant sum of squared reserves, enabling precise trade calculations with minimal slippage.',
+      subtitle: 'K = Σ(xᵢ - r)² Mathematical Foundation',
+      description: 'The core invariant K = Σ(xᵢ - r)² maintains constant sum of squared reserves, enabling precise trade calculations with minimal slippage.',
       details: [
-        'Invariant formula K = x₁² + x₂² + ... + xₙ²',
-        'Polar decomposition: r⃗ = αv⃗ + w⃗ where v⃗ ⊥ w⃗',
         'Trade calculation preserves spherical constraint',
         'Newton\'s method for integer square root precision',
-        'Geometric proof ensures no arbitrage opportunities'
+        'Implementation of Q96X48 to increase precision'
       ],
       icon: <Eye className="w-6 h-6" />,
       color: 'from-blue-600 to-cyan-400',
@@ -245,10 +243,6 @@ const FusionTimeline: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <CheckCircle2 className="w-3 h-3 text-blue-400" />
                           <span className="text-xs text-neutral-300 font-[family-name:var(--font-spline-sans-mono)]">Invariant preservation</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <CheckCircle2 className="w-3 h-3 text-blue-400" />
-                          <span className="text-xs text-neutral-300 font-[family-name:var(--font-spline-sans-mono)]">No arbitrage guarantees</span>
                         </div>
                       </div>
                     </div>

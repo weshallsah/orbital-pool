@@ -16,7 +16,7 @@ const TechnicalOverview: React.FC = () => {
     {
       icon: <Shield className="w-8 h-8" />,
       title: "Spherical Invariant",
-      description: "K = ||r||² maintains constant sum of squared reserves across all trades",
+      description: "K = Σ(xᵢ - r)² maintains constant sum of squared reserves across all trades",
       color: "from-blue-500 to-cyan-500"
     },
     {
@@ -34,7 +34,7 @@ const TechnicalOverview: React.FC = () => {
     {
       icon: <Users className="w-8 h-8" />,
       title: "Gas Optimization",
-      description: "Integer arithmetic and Newton's method minimize computational costs",
+      description: "Q96X48 arithmetic and Newton's method minimize computational costs",
       color: "from-cyan-500 to-blue-600"
     }
   ];
@@ -43,16 +43,16 @@ const TechnicalOverview: React.FC = () => {
     {
       category: "Protocol",
       specs: [
-        { label: "Invariant Formula", value: "K = ||r||² = Σ(xᵢ²)" },
+        { label: "Invariant Formula", value: "K = Σ(xᵢ - r)²" },
         { label: "Square Root Method", value: "Newton's Method" },
-        { label: "Precision", value: "10¹⁸ (18 decimals)" },
-        { label: "Gas Estimation", value: "80K + 15K×complexity" }
+        { label: "Precision", value: "Q96X48" },
+        { label: "Tolerance Range", value: "0 < p < 1" }
       ]
     },
     {
       category: "Performance",
       specs: [
-        { label: "Max Efficiency", value: "1000x Capital" },
+        { label: "Efficiency", value: "High" },
         { label: "Supported Tokens", value: "n-dimensional" },
         { label: "Tick Boundaries", value: "Spherical Caps" },
         { label: "Liquidity Concentration", value: "Customizable Ranges" }
@@ -105,7 +105,7 @@ const TechnicalOverview: React.FC = () => {
       {/* Header */}
       <div className="text-center">
         <h2 className="text-3xl md:text-4xl font-black mb-4 bg-white bg-clip-text text-transparent font-[family-name:var(--font-unbounded)]">
-          Benchmarks
+          Features
         </h2>
         <p className="text-lg text-neutral-300 max-w-3xl mx-auto font-[family-name:var(--font-spline-sans-mono)]">
           Why us over popular market capturers?  

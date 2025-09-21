@@ -706,16 +706,7 @@ const InteractiveDemo = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="text-center">
-                      <div className="text-neutral-400">Capital Efficiency</div>
-                      <div className="text-blue-400 font-bold">85x Boost</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-neutral-400">Final Slippage</div>
-                      <div className="text-cyan-400 font-bold">0.02%</div>
-                    </div>
-                  </div>
+        
                 </motion.div>
               )}
             </AnimatePresence>

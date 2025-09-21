@@ -83,11 +83,10 @@ const OrbitalLiquidityPage = () => {
     ) return;
 
     try {
-      // Convert amounts to wei (18 decimals) and then shift by 48 bits for Q96.48 format
-      const amountsInWei = liquidityState.amounts.map((amt: string) => {
-        const weiAmount = parseEther(amt || '0');
-        // Shift left by 48 bits for Q96.48 format
-        return weiAmount << BigInt(48);
+      // Scale the amount by shifting left by 48 bits (no wei conversion)
+      const amountsAdjusted = liquidityState.amounts.map((amt: string) => {
+        const amountBigInt = BigInt(amt || '0');
+        return amountBigInt << BigInt(48);
       });
 
       // Convert kValue to proper format (already in Q96.48)

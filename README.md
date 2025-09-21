@@ -55,23 +55,15 @@ Implementation of newton's method in Stylus contract to solve torus invariant wi
 <img src="public/newton_method.jpg"  alt="Newton" />
 <img src="public/torus_invariant.jpg" " alt="Torus"/>
 
-**4. Tick Geometry**
+**4. Q96X48 Implementation** 
+We utilize the Q96X48 fixed-point arithmetic format, where the lower 48 bits represent the fractional component and the upper 96 bits represent the integer component.
+
+**5. Tick Geometry**
 
 Each tick is defined by:
 - **k**: Plane constant (tick identifier)
 - **r**: Radius of the tick
 - **Status**: Interior or Boundary
-
-#### K-Value Validation
-
-The k-value must satisfy the constraint:
-```
-k ≥ (r × PRECISION) / SQRT5_SCALED
-```
-
-Where:
-- `PRECISION = 1e15`
-- `SQRT5_SCALED = 2236067977499790`
 
 ## Improvements Made in Open House
 
@@ -89,13 +81,13 @@ Where:
 
 ## Contract Addresses
 
-- **Orbital AMM Pool**: `0x83EC719A6F504583d0F88CEd111cB8e8c0956431`
-- **Math Helper (Stylus)**: `0x112F137fcB7fA9Ed84A54767aD4d555904F274d9`
-- **MUSDC-A**: `0x9666526dcF585863f9ef52D76718d810EE77FB8D`
-- **MUSDC-B**: `0x1921d350666BA0Cf9309D4DA6a033EE0f0a70bEC`
-- **MUSDC-C**: `0xbEDC66545b8A4763eF8962860901F817DB7C2199`
-- **MUSDC-D**: `0x13f62264A2Eb0834DEfb513D7A3c69fde9cc1fD2`
-- **MUSDC-E**: `0x0510Bf5F38ca1Db3DE4B97E40FFfb9b195B60d41`
+- **Orbital AMM Pool**: `0x8E27C670fA1D45a635e916F8bd60F7E5E1AcF19B`
+- **Math Helper (Stylus)**: `0xFD95736D8B046923A954D79Ef4EcDcE047586260`
+- **MUSDC-A**: `0x4036B58f91F2A821cB56E2921213663f58db7e6c`
+- **MUSDC-B**: `0x41906B6CBFC6a1bEd09311a88e7549a2eB34F325`
+- **MUSDC-C**: `0x28f73c76Cb06ceAAA94Adce630f012531f5E80a9`
+- **MUSDC-D**: `0x153BD834089ad564fF33450A621EAC412cD4D8f0`
+- **MUSDC-E**: `0x987b031Bc36122867108da11686F66D22A9eB460`
 
 ## Architecture & User Flow
 
@@ -115,7 +107,7 @@ Where:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/orbital-pool.git
+git clone https://github.com/agrawalx/orbital-pool.git
 cd orbital-pool
 
 # Install dependencies

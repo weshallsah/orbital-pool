@@ -1,10 +1,25 @@
 'use client'
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import Navigation from '@/components/Navigation';
-import { 
-  FileText, Terminal, Code, Copy, Check, ChevronRight, 
-  Shield, Eye, Network, Cpu, Lock, Zap, Book
+import { Button } from '@/components/ui/Button';
+import OrbitalInvariant from "./OrbitalInvariant";
+import { BlockMath } from 'react-katex';
+import {
+  Book,
+  Code,
+  Zap,
+  Globe,
+  Shield,
+  ChevronRight,
+  ExternalLink,
+  Copy,
+  Check,
+  FileText,
+  Terminal,
+  Cpu,
+  Network,
+  Lock,
+  Eye
 } from 'lucide-react';
 
 const DocumentationPage = () => {
@@ -19,7 +34,7 @@ const DocumentationPage = () => {
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ 
+      element.scrollIntoView({
         behavior: 'smooth',
         block: 'start'
       });
@@ -47,7 +62,7 @@ const DocumentationPage = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <Navigation />
-      
+
       <div className="container mx-auto px-6 py-24">
         {/* Header */}
         <div className="text-center mb-16">
@@ -60,13 +75,13 @@ const DocumentationPage = () => {
             </h1>
           </div>
           <p className="text-neutral-400 text-xl max-w-3xl mx-auto leading-relaxed">
-            Comprehensive documentation for the Orbital Protocol - a revolutionary 5-token AMM using spherical geometry and torus-based invariants for optimal capital efficiency.
+            This page provides a comprehensive documentation for the Orbital Protocol, a revolutionary multi-stablecoin AMM using spherical geometry and torus-based invariants for optimal capital efficiency.
           </p>
         </div>
 
         {/* Quick Navigation */}
         <div className="grid md:grid-cols-2 gap-8 mb-16">
-          <Card 
+          <Card
             className="bg-neutral-900/50 border-neutral-800 hover:border-blue-500/50 transition-all duration-300 cursor-pointer group"
             onClick={() => scrollToSection('protocol')}
           >
@@ -76,8 +91,8 @@ const DocumentationPage = () => {
                   <FileText className="w-8 h-8 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-semibold">Protocol Documentation</h3>
-                  <p className="text-neutral-400">Learn about Orbital&apos;s revolutionary spherical AMM design</p>
+                  <h3 className="text-2xl font-semibold">Core Protocol Documentation</h3>
+                  <p className="text-neutral-400">Learn about Orbital's revolutionary spherical AMM design</p>
                 </div>
               </div>
               <div className="flex items-center text-blue-400 text-sm group-hover:text-cyan-300 transition-colors">
@@ -87,7 +102,7 @@ const DocumentationPage = () => {
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className="bg-neutral-900/50 border-neutral-800 hover:border-blue-500/50 transition-all duration-300 cursor-pointer group"
             onClick={() => scrollToSection('api')}
           >
@@ -115,7 +130,7 @@ const DocumentationPage = () => {
             <CardHeader>
               <CardTitle className="text-3xl flex items-center space-x-3">
                 <FileText className="w-8 h-8 text-blue-400" />
-                <span>Protocol Documentation</span>
+                <span>Core Protocol Documentation</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -123,39 +138,42 @@ const DocumentationPage = () => {
               <div>
                 <h3 className="text-2xl font-semibold mb-4 text-blue-400">Orbital Protocol Overview</h3>
                 <p className="text-neutral-300 leading-relaxed mb-6">
-                  Orbital is a revolutionary 5-token Automated Market Maker (AMM) that implements a <strong>torus-based invariant</strong> for price discovery. 
-                  Unlike traditional AMMs that use constant product formulas, Orbital treats token reserves as vectors in n-dimensional space, 
-                  enabling unprecedented capital efficiency and mathematical precision.
+                  Orbital is an innovative Automated Market Maker (AMM), an implementation based on the Paradigm's whitepaper, that transforms stablecoin trading by incorporating a torus-based invariant at the core of its mechanism. While other AMMs use constant product or similar formulas, Orbital positions token reserves as vectors along an n-dimensional space to allow for exact and effective price discovery. This method enables concentrated liquidity customization across pools of stablecoins, with liquidity centered around the $1 equal price point. By coming to a set of tick boundaries as orbits around this middle point, Orbital provides greater capital efficiency and flexibility to liquidity providers and a new benchmark in decentralized finance.
                 </p>
-                
-                <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-lg p-6">
+
+                <div className="bg-neutral-800/30 border border-blue-500/30 rounded-lg p-6">
                   <h4 className="font-semibold mb-3 text-cyan-300 flex items-center">
                     <Zap className="w-5 h-5 mr-2" />
-                    Key Innovation: Spherical Geometry
+                    Key Innovations
                   </h4>
                   <p className="text-neutral-300 text-sm mb-4">
-                    Orbital prices assets on a <strong>sphere</strong> rather than a line, using the invariant <code className="bg-neutral-700 px-2 py-1 rounded text-cyan-300">K = ||r||²</code> 
-                    where reserves form vectors in 5-dimensional space.
+                    Orbital prices assets on a sphere rather than a line, using the invariant <code className=" rounded text-cyan-300"><OrbitalInvariant /></code>
+                    <p>where:</p>
+                    <ul className='px-8 mt-2'>
+                      <li><strong>x<sub>i</sub></strong>: reserve of token i</li>
+                      <li><strong>r</strong>: constant radius of the torus</li>
+                      <li><strong>n</strong>: total number of tokens in the pool</li>
+                    </ul>
                   </p>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center text-sm">
-                        <span className="w-2 h-2 bg-blue-400 rounded-full mr-3"></span>
-                        <span className="text-neutral-300"><strong>1000x</strong> more capital efficient than Uniswap/Curve</span>
+                        <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>
+                        <span className="text-neutral-300">Depeg Tolerance for LPs</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>
-                        <span className="text-neutral-300">Interior/Boundary tick classification</span>
+                        <span className="text-neutral-300">Q96X48 arithmetic precision</span>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center text-sm">
-                        <span className="w-2 h-2 bg-blue-400 rounded-full mr-3"></span>
-                        <span className="text-neutral-300">Fixed-point arithmetic precision (1e15)</span>
+                        <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>
+                        <span className="text-neutral-300">Newton's method for numerical stability</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>
-                        <span className="text-neutral-300">Newton&apos;s method for numerical stability</span>
+                        <span className="text-neutral-300">Trade Segmentation in large swaps</span>
                       </div>
                     </div>
                   </div>
@@ -174,18 +192,19 @@ const DocumentationPage = () => {
                     <p className="text-neutral-400 text-sm mb-4">
                       The core mathematical principle behind Orbital&apos;s price discovery mechanism.
                     </p>
-                    <CodeBlock
-                      id="torus-invariant"
-                      language="mathematical"
-                      code={`// 5-dimensional torus invariant
-K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
+                    <div
+                      style={{
+                        background: '#',
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        display: 'inline-block',
+                      }}
+                    >
+                      <BlockMath math="\sum_{i=1}^{n} (r - x_i)^2 = r^2" />
+                    </div>
 
-// Where:
-// r = (r₁, r₂, r₃, r₄, r₅) are token reserves
-// K = constant torus radius squared`}
-                    />
                   </div>
-                  
+
                   <div className="bg-neutral-800/30 rounded-lg p-6">
                     <h4 className="font-semibold mb-3 flex items-center">
                       <Network className="w-5 h-5 mr-2 text-cyan-400" />
@@ -200,14 +219,12 @@ K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
                           <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
                           <span className="text-green-400 font-medium">Interior Ticks</span>
                         </div>
-                        <p className="text-neutral-400 text-xs">Within all constraints, behave like spherical AMMs</p>
                       </div>
                       <div className="bg-neutral-700/50 rounded p-3">
                         <div className="flex items-center mb-2">
                           <span className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
                           <span className="text-yellow-400 font-medium">Boundary Ticks</span>
                         </div>
-                        <p className="text-neutral-400 text-xs">On constraint boundaries, act as lower-dimensional spheres</p>
                       </div>
                     </div>
                   </div>
@@ -220,83 +237,55 @@ K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
                 <div className="space-y-6">
                   {[
                     {
-                      title: 'IntegratedOrbital.sol',
-                      lines: '897 lines',
+                      title: 'Orbital.sol',
                       icon: Shield,
-                      color: 'blue',
-                      description: 'Main AMM contract implementing the 5-token pool with torus invariant mathematics',
+                      description: 'Main AMM contract implementing the n-token pool with torus invariant mathematics',
                       features: [
-                        'Torus invariant K = ||r||² implementation',
-                        'Interior/Boundary tick system for liquidity management', 
+                        'Interior/Boundary tick system for liquidity management',
                         'Integration with Stylus math helper for complex calculations',
-                        'Swap functionality with fallback to constant product',
-                        'Fee distribution among liquidity providers',
-                        'Fixed-point arithmetic with precision 1e15'
+                        'Swap functionality',
+                        'Q96X48 arithmetic with precision',
+                        'Depeg Tolerance for liquidity providers'
                       ]
                     },
                     {
                       title: 'OrbitalHelper.rs',
-                      lines: '874 lines', 
                       icon: Cpu,
                       color: 'cyan',
-                      description: 'Stylus contract for mathematical computations using Newton&apos;s method',
+                      description: 'Stylus contract for mathematical computations',
                       features: [
                         'Torus invariant solving using Newton&apos;s method',
                         'Radius calculations for tick positioning',
                         'Boundary tick S value calculations',
                         'Robust numerical methods with multiple fallbacks',
                         'Integer square root calculations',
-                        'Geometric constraint validation'
+                        'Q96X48 calculations'
                       ]
                     },
-                    {
-                      title: 'MockUSDC.sol',
-                      lines: '45 lines',
-                      icon: Lock,
-                      color: 'green',
-                      description: 'Simple ERC20 token contracts for testing (MUSDC-A through MUSDC-E)',
-                      features: [
-                        'Standard ERC20 implementation',
-                        '18 decimal precision',
-                        'Mintable for testing purposes',
-                        'Used for 5-token pool testing',
-                        'Deployed on Arbitrum Sepolia',
-                        'Identical functionality across all 5 tokens'
-                      ]
-                    }
                   ].map((contract) => (
                     <div key={contract.title} className="bg-neutral-800/30 rounded-lg p-6 border border-neutral-700">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-lg ${
-                            contract.color === 'blue' ? 'bg-blue-500/10' : 
+                          <div className={`p-2 rounded-lg ${contract.color === 'blue' ? 'bg-blue-500/10' :
                             contract.color === 'cyan' ? 'bg-cyan-500/10' : 'bg-green-500/10'
-                          }`}>
-                            <contract.icon className={`w-6 h-6 ${
-                              contract.color === 'blue' ? 'text-blue-400' : 
+                            }`}>
+                            <contract.icon className={`w-6 h-6 ${contract.color === 'blue' ? 'text-blue-400' :
                               contract.color === 'cyan' ? 'text-cyan-400' : 'text-green-400'
-                            }`} />
+                              }`} />
                           </div>
                           <div>
                             <h4 className="text-lg font-semibold">{contract.title}</h4>
                             <p className="text-neutral-400 text-sm">{contract.description}</p>
                           </div>
                         </div>
-                        <span className={`text-xs px-3 py-1 rounded font-mono ${
-                          contract.color === 'blue' ? 'bg-blue-500/20 text-blue-400' : 
-                          contract.color === 'cyan' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-green-500/20 text-green-400'
-                        }`}>
-                          {contract.lines}
-                        </span>
                       </div>
-                      
+
                       <div className="grid md:grid-cols-2 gap-3">
                         {contract.features.map((feature, idx) => (
                           <div key={idx} className="flex items-start text-sm">
-                            <span className={`w-1.5 h-1.5 rounded-full mr-3 mt-2 flex-shrink-0 ${
-                              contract.color === 'blue' ? 'bg-blue-400' : 
+                            <span className={`w-1.5 h-1.5 rounded-full mr-3 mt-2 flex-shrink-0 ${contract.color === 'blue' ? 'bg-blue-400' :
                               contract.color === 'cyan' ? 'bg-cyan-400' : 'bg-green-400'
-                            }`}></span>
+                              }`}></span>
                             <span className="text-neutral-300">{feature}</span>
                           </div>
                         ))}
@@ -372,8 +361,7 @@ K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
                     code="http://localhost:8000"
                   />
                   <p className="text-neutral-300 text-sm mt-4 mb-4">
-                    All API endpoints are accessible at this base URL. <strong>No authentication required.</strong> 
-                    The API is optimized for command-line testing with curl commands.
+                    All API endpoints are accessible at this base URL. The API is optimized for command-line testing with CURL commands.
                   </p>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -497,15 +485,14 @@ K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
                   ].map((endpoint, index) => (
                     <div key={index} className="bg-neutral-800/30 rounded-lg p-6 border border-neutral-700">
                       <div className="flex items-center space-x-3 mb-4">
-                        <span className={`px-3 py-1 rounded text-xs font-mono font-semibold ${
-                          endpoint.method === 'GET' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
-                        }`}>
+                        <span className={`px-3 py-1 rounded text-xs font-mono font-semibold ${endpoint.method === 'GET' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                          }`}>
                           {endpoint.method}
                         </span>
                         <code className="text-cyan-300 font-mono text-lg">{endpoint.endpoint}</code>
                       </div>
                       <p className="text-neutral-300 text-sm mb-4">{endpoint.desc}</p>
-                      
+
                       <div className="space-y-4">
                         <div>
                           <h5 className="text-sm font-semibold text-neutral-400 mb-2">Request Example:</h5>
@@ -515,7 +502,7 @@ K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
                             code={endpoint.example}
                           />
                         </div>
-                        
+
                         {endpoint.response && (
                           <div>
                             <h5 className="text-sm font-semibold text-neutral-400 mb-2">Response Example:</h5>
@@ -561,7 +548,7 @@ K = ||r||² = r₁² + r₂² + r₃² + r₄² + r₅²
                         </div>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h4 className="font-semibold mb-3 text-cyan-300 flex items-center">
                         <Code className="w-5 h-5 mr-2" />

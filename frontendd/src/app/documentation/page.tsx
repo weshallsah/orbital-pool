@@ -331,7 +331,7 @@ const DocumentationPage = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-neutral-400">API:</span>
-                          <code className="text-white text-xs bg-neutral-700 px-2 py-1 rounded">localhost:8000</code>
+                          <code className="text-white text-xs bg-neutral-700 px-2 py-1 rounded">orbital-pool-api.onrender.com</code>
                         </div>
                       </div>
                     </div>
@@ -359,7 +359,7 @@ const DocumentationPage = () => {
                   <CodeBlock
                     id="base-url"
                     language="endpoint"
-                    code="http://localhost:8000"
+                    code="http://orbital-pool-api.onrender.com"
                   />
                   <p className="text-neutral-300 text-sm mt-4 mb-4">
                     All API endpoints are accessible at this base URL. The API is optimized for command-line testing with CURL commands.
@@ -398,7 +398,7 @@ const DocumentationPage = () => {
                       method: 'GET',
                       endpoint: '/health',
                       desc: 'Check API and pool status - returns pool health, contract addresses, and network info',
-                      example: 'curl http://localhost:8000/health',
+                      example: 'curl http://orbital-pool-api.onrender.com/health',
                       response: `{
   "status": "healthy",
   "pool_address": "0x83EC719A6F504583d0F88CEd111cB8e8c0956431",
@@ -410,7 +410,7 @@ const DocumentationPage = () => {
                       method: 'GET',
                       endpoint: '/tokens',
                       desc: 'Get all supported tokens (MUSDC-A through MUSDC-E) with addresses and metadata',
-                      example: 'curl http://localhost:8000/tokens',
+                      example: 'curl http://orbital-pool-api.onrender.com/tokens',
                       response: `{
   "tokens": [
     {"index": 0, "symbol": "MUSDC-A", "address": "0x..."},
@@ -423,7 +423,7 @@ const DocumentationPage = () => {
                       method: 'POST',
                       endpoint: '/swap',
                       desc: 'Execute token swap - returns transaction data for wallet signing',
-                      example: `curl -X POST http://localhost:8000/swap \\
+                      example: `curl -X POST http://orbital-pool-api.onrender.com/swap \\
   -H "Content-Type: application/json" \\
   -d '{
     "token_in_index": 0,
@@ -443,7 +443,7 @@ const DocumentationPage = () => {
                       method: 'POST',
                       endpoint: '/liquidity/add',
                       desc: 'Add liquidity to the pool - specify amounts for all 5 tokens and tolerance percentage',
-                      example: `curl -X POST http://localhost:8000/liquidity/add \\
+                      example: `curl -X POST http://orbital-pool-api.onrender.com/liquidity/add \\
   -H "Content-Type: application/json" \\
   -d '{
     "amounts": ["1000000000000000000", "1000000000000000000", "1000000000000000000", "1000000000000000000", "1000000000000000000"],
@@ -460,7 +460,7 @@ const DocumentationPage = () => {
                       method: 'POST',
                       endpoint: '/liquidity/remove',
                       desc: 'Remove liquidity from the pool - specify LP token amount to burn',
-                      example: `curl -X POST http://localhost:8000/liquidity/remove \\
+                      example: `curl -X POST http://orbital-pool-api.onrender.com/liquidity/remove \\
   -H "Content-Type: application/json" \\
   -d '{
     "lp_token_amount": "1000000000000000000",
@@ -476,7 +476,7 @@ const DocumentationPage = () => {
                       method: 'GET',
                       endpoint: '/gas-price',
                       desc: 'Get current gas price estimation for Arbitrum Sepolia network',
-                      example: 'curl http://localhost:8000/gas-price',
+                      example: 'curl http://orbital-pool-api.onrender.com/gas-price',
                       response: `{
   "gas_price": "100000000",
   "gas_price_gwei": "0.1",
@@ -559,7 +559,7 @@ const DocumentationPage = () => {
                         id="quick-integration"
                         language="javascript"
                         code={`// Basic swap example
-const response = await fetch('http://localhost:8000/swap', {
+const response = await fetch('http://orbital-pool-api.onrender.com/swap', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

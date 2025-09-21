@@ -363,53 +363,282 @@ const UniteDefiLanding = () => {
             </div>
           </div>
 
-          {/* Real Examples */}
+          {/* Detailed API Examples */}
           <div className="mb-16">
-            <h3 className="text-3xl font-bold mb-8 text-center text-white">Real Examples (Copy & Paste Ready)</h3>
+            <h3 className="text-3xl font-bold mb-8 text-center text-white">Complete API Reference (Simple Explanations)</h3>
             <div className="space-y-8">
               <Card className="bg-neutral-900/30 border-neutral-800">
                 <CardHeader>
-                  <CardTitle className="text-xl text-cyan-300">Check if the API is working</CardTitle>
+                  <CardTitle className="text-xl text-cyan-300 flex items-center space-x-3">
+                    <span className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">✓</span>
+                    <span>Health Check - Is Everything Working?</span>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="bg-neutral-900 rounded-lg p-4 mb-4">
+                <CardContent className="space-y-4">
+                  <div className="bg-neutral-900 rounded-lg p-4">
                     <code className="text-green-400 text-sm">curl http://localhost:8000/health</code>
                   </div>
-                  <p className="text-neutral-300 text-sm">
-                    This is like asking "Are you there?" - it's the first thing you should try when testing our API.
-                  </p>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What it does:</h4>
+                      <p className="text-neutral-300 text-sm leading-relaxed">
+                        This is like checking if a restaurant is open before you go there. It tells you if our API is running, 
+                        what network it's connected to, and gives you the pool address. Always run this first!
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What you get back:</h4>
+                      <div className="bg-neutral-800 rounded p-3 text-xs text-neutral-300">
+                        {`{
+  "status": "healthy",
+  "pool_address": "0x83EC...",
+  "network": "Arbitrum Sepolia",
+  "chain_id": 421614
+}`}
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card className="bg-neutral-900/30 border-neutral-800">
                 <CardHeader>
-                  <CardTitle className="text-xl text-cyan-300">Get current token prices</CardTitle>
+                  <CardTitle className="text-xl text-cyan-300 flex items-center space-x-3">
+                    <span className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">📋</span>
+                    <span>Get All Available Tokens</span>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="bg-neutral-900 rounded-lg p-4 mb-4">
+                <CardContent className="space-y-4">
+                  <div className="bg-neutral-900 rounded-lg p-4">
                     <code className="text-green-400 text-sm">curl http://localhost:8000/tokens</code>
                   </div>
-                  <p className="text-neutral-300 text-sm">
-                    See all available tokens and their current addresses. Essential for any app that needs to know what tokens exist.
-                  </p>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What it does:</h4>
+                      <p className="text-neutral-300 text-sm leading-relaxed">
+                        Think of this as getting a menu of all available dishes. It shows you all 5 tokens (MUSDC-A through MUSDC-E) 
+                        that you can trade, along with their addresses. You need this before you can do any swaps.
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What you get back:</h4>
+                      <div className="bg-neutral-800 rounded p-3 text-xs text-neutral-300">
+                        {`{
+  "tokens": {
+    "0": {"address": "0x9666...", "symbol": "MUSDC-A"},
+    "1": {"address": "0x1921...", "symbol": "MUSDC-B"},
+    "2": {"address": "0x...", "symbol": "MUSDC-C"},
+    "3": {"address": "0x...", "symbol": "MUSDC-D"},
+    "4": {"address": "0x...", "symbol": "MUSDC-E"}
+  }
+}`}
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card className="bg-neutral-900/30 border-neutral-800">
                 <CardHeader>
-                  <CardTitle className="text-xl text-cyan-300">Calculate a swap</CardTitle>
+                  <CardTitle className="text-xl text-cyan-300 flex items-center space-x-3">
+                    <span className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">🔄</span>
+                    <span>Swap Tokens (The Main Event)</span>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="bg-neutral-900 rounded-lg p-4 mb-4">
+                <CardContent className="space-y-4">
+                  <div className="bg-neutral-900 rounded-lg p-4">
                     <code className="text-green-400 text-sm">
                       curl -X POST http://localhost:8000/swap \<br/>
                       &nbsp;&nbsp;-H &quot;Content-Type: application/json&quot; \<br/>
                       &nbsp;&nbsp;-d &apos;{`{"token_in_index": 0, "token_out_index": 1, "amount_in": "1000000000000000000", "min_amount_out": "0", "user_address": "0xYourAddress"}`}&apos;
                     </code>
                   </div>
-                  <p className="text-neutral-300 text-sm">
-                    This tells you exactly how much you'll get when swapping tokens, plus all the transaction data you need to execute it.
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What it does:</h4>
+                      <p className="text-neutral-300 text-sm leading-relaxed mb-3">
+                        This is like ordering food at a restaurant. You tell us: "I want to trade 1 MUSDC-A for MUSDC-B" 
+                        and we calculate exactly how much MUSDC-B you'll get, plus all the transaction details.
+                      </p>
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
+                        <p className="text-blue-300 text-xs font-semibold mb-1">Parameters explained:</p>
+                        <ul className="text-neutral-300 text-xs space-y-1">
+                          <li>• <strong>token_in_index:</strong> Which token you're giving (0 = MUSDC-A)</li>
+                          <li>• <strong>token_out_index:</strong> Which token you want (1 = MUSDC-B)</li>
+                          <li>• <strong>amount_in:</strong> How much you're trading (in wei)</li>
+                          <li>• <strong>min_amount_out:</strong> Minimum you'll accept (0 = any amount)</li>
+                          <li>• <strong>user_address:</strong> Your wallet address</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What you get back:</h4>
+                      <div className="bg-neutral-800 rounded p-3 text-xs text-neutral-300">
+                        {`{
+  "success": true,
+  "transaction_data": {
+    "to": "0x83EC...",
+    "data": "0x5673b02d...",
+    "gas": 300000,
+    "gasPrice": "100000000",
+    "chainId": 421614
+  },
+  "gas_estimate": 300000
+}`}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Add Liquidity */}
+              <Card className="bg-neutral-900/30 border-neutral-800">
+                <CardHeader>
+                  <CardTitle className="text-xl text-cyan-300 flex items-center space-x-3">
+                    <span className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">💧</span>
+                    <span>Add Liquidity (Become a Market Maker)</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-neutral-900 rounded-lg p-4">
+                    <code className="text-green-400 text-sm">
+                      curl -X POST http://localhost:8000/liquidity/add \<br/>
+                      &nbsp;&nbsp;-H &quot;Content-Type: application/json&quot; \<br/>
+                      &nbsp;&nbsp;-d &apos;{`{"k_value": 1000, "amounts": ["1000000000000000000", "1000000000000000000", "1000000000000000000", "1000000000000000000", "1000000000000000000"], "user_address": "0xYourAddress"}`}&apos;
+                    </code>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What it does:</h4>
+                      <p className="text-neutral-300 text-sm leading-relaxed mb-3">
+                        This is like opening a food stall in a market. You provide all 5 tokens in equal amounts, 
+                        and you earn fees when people trade through your liquidity. The k_value determines how concentrated your position is.
+                      </p>
+                      <div className="bg-purple-500/10 border border-purple-500/30 rounded p-3">
+                        <p className="text-purple-300 text-xs font-semibold mb-1">Key concepts:</p>
+                        <ul className="text-neutral-300 text-xs space-y-1">
+                          <li>• <strong>k_value:</strong> Higher = more concentrated liquidity = more fees</li>
+                          <li>• <strong>amounts:</strong> How much of each token you're adding</li>
+                          <li>• <strong>LP shares:</strong> You get tokens representing your share of the pool</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What you get back:</h4>
+                      <div className="bg-neutral-800 rounded p-3 text-xs text-neutral-300">
+                        {`{
+  "success": true,
+  "transaction_data": {
+    "to": "0x83EC...",
+    "data": "0xd3fbf29e...",
+    "gas": 300000
+  },
+  "k_value": "1000",
+  "lp_shares": "500000000000000000"
+}`}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Gas Price */}
+              <Card className="bg-neutral-900/30 border-neutral-800">
+                <CardHeader>
+                  <CardTitle className="text-xl text-cyan-300 flex items-center space-x-3">
+                    <span className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-sm">⛽</span>
+                    <span>Check Gas Prices (Transaction Costs)</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-neutral-900 rounded-lg p-4">
+                    <code className="text-green-400 text-sm">curl http://localhost:8000/gas-price</code>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What it does:</h4>
+                      <p className="text-neutral-300 text-sm leading-relaxed mb-3">
+                        This is like checking gas prices before you fill up your car. It tells you how much it will cost 
+                        to execute transactions on the blockchain right now. Gas prices change based on network congestion.
+                      </p>
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-3">
+                        <p className="text-yellow-300 text-xs font-semibold mb-1">Gas explained:</p>
+                        <ul className="text-neutral-300 text-xs space-y-1">
+                          <li>• <strong>Gas:</strong> Fee paid to miners for processing your transaction</li>
+                          <li>• <strong>Gwei:</strong> Smaller unit of gas (1 ETH = 1,000,000,000 Gwei)</li>
+                          <li>• <strong>Higher gas:</strong> Faster transaction, more expensive</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2 text-white">What you get back:</h4>
+                      <div className="bg-neutral-800 rounded p-3 text-xs text-neutral-300">
+                        {`{
+  "gas_price": "100000000",
+  "gas_price_gwei": "0.1",
+  "network_congestion": "low"
+}`}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Analytics Overview */}
+              <Card className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/30">
+                <CardHeader>
+                  <CardTitle className="text-xl text-cyan-300 flex items-center space-x-3">
+                    <span className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">📊</span>
+                    <span>Analytics & Data (The Intelligence Layer)</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <p className="text-neutral-300 text-sm leading-relaxed">
+                    These endpoints give you insights into what's happening in the protocol. Perfect for building dashboards, 
+                    tracking performance, and understanding market behavior.
                   </p>
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="bg-neutral-800/50 rounded p-4">
+                        <h4 className="font-semibold mb-2 text-cyan-300">Protocol Statistics</h4>
+                        <code className="text-green-400 text-xs">GET /analytics/stats</code>
+                        <p className="text-neutral-300 text-xs mt-2">
+                          Get total value locked, trading volume, number of swaps, and other key metrics. 
+                          Like getting a business report for the entire protocol.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-neutral-800/50 rounded p-4">
+                        <h4 className="font-semibold mb-2 text-cyan-300">Recent Swaps</h4>
+                        <code className="text-green-400 text-xs">GET /analytics/swaps?limit=10</code>
+                        <p className="text-neutral-300 text-xs mt-2">
+                          See the latest trading activity. Great for building activity feeds, 
+                          tracking popular trading pairs, or monitoring suspicious activity.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="bg-neutral-800/50 rounded p-4">
+                        <h4 className="font-semibold mb-2 text-cyan-300">Token Analytics</h4>
+                        <code className="text-green-400 text-xs">GET /analytics/token/0</code>
+                        <p className="text-neutral-300 text-xs mt-2">
+                          Deep dive into a specific token's performance: price history, volume, 
+                          liquidity changes. Essential for token analysis tools.
+                        </p>
+                      </div>
+                      
+                      <div className="bg-neutral-800/50 rounded p-4">
+                        <h4 className="font-semibold mb-2 text-cyan-300">User Activity</h4>
+                        <code className="text-green-400 text-xs">GET /analytics/user/0x...</code>
+                        <p className="text-neutral-300 text-xs mt-2">
+                          Track a specific user's trading history, portfolio value, 
+                          and activity patterns. Useful for portfolio trackers and user dashboards.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>

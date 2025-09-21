@@ -18,8 +18,8 @@ const splineSansMono = Spline_Sans_Mono({
 
 export const metadata: Metadata = {
   title: "Orbital  - Next-Gen Cross-Chain Swap Protocol",
-  description: "Experience seamless cross-chain swaps across EVM and non-EVM chains including Sui, Aptos, Solana, and more. Built on 1inch Fusion+ with enhanced security and efficiency.",
-  keywords: ["DeFi", "Cross-chain", "Swap", "1inch", "Fusion", "Sui", "Aptos", "Solana", "Blockchain"],
+  description: "Experience seamless stablecoin swaps.",
+  keywords: ["DeFi", "stablecoin", "uniswap", "1inch", "curve", "amm"],
   authors: [{ name: "Orbital  Team" }],
   creator: "Orbital ",
   publisher: "Orbital ",

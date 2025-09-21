@@ -127,7 +127,7 @@ const ApiDocsPage = () => {
                 <CodeBlock
                   id="base-url"
                   language="endpoint"
-                  code="http://localhost:8000"
+                  code="http://orbital-pool-api.onrender.com"
                 />
                 <p className="text-neutral-400">Complete REST API reference and integration guide</p>
                 <p className="text-neutral-400 text-sm mt-2">No authentication needed - everything&apos;s public.</p>
@@ -138,7 +138,7 @@ const ApiDocsPage = () => {
                 <CodeBlock
                   id="health-check"
                   language="bash"
-                  code="curl http://localhost:8000/health"
+                  code="curl http://orbital-pool-api.onrender.com/health"
                 />
               </div>
 
@@ -181,7 +181,7 @@ const ApiDocsPage = () => {
               method="GET"
               endpoint="/health"
               description="Check if everything&apos;s working."
-              example="curl http://localhost:8000/health"
+              example="curl http://orbital-pool-api.onrender.com/health"
               response={`{
   "status": "healthy",
   "pool_address": "0x83EC719A6F504583d0F88CEd111cB8e8c0956431",
@@ -194,7 +194,7 @@ const ApiDocsPage = () => {
               method="GET"
               endpoint="/tokens"
               description="See what tokens are available (MUSDC-A through MUSDC-E)."
-              example="curl http://localhost:8000/tokens"
+              example="curl http://orbital-pool-api.onrender.com/tokens"
               response={`{
   "tokens": {
     "0": {
@@ -217,7 +217,7 @@ const ApiDocsPage = () => {
               method="POST"
               endpoint="/swap"
               description="Generate transaction data for swapping tokens."
-              example={`curl -X POST http://localhost:8000/swap \\
+              example={`curl -X POST http://orbital-pool-api.onrender.com/swap \\
   -H "Content-Type: application/json" \\
   -d '{
     "token_in_index": 0,
@@ -247,7 +247,7 @@ const ApiDocsPage = () => {
               method="POST"
               endpoint="/liquidity/add"
               description="Add liquidity to the pool with k-value."
-              example={`curl -X POST http://localhost:8000/liquidity/add \\
+              example={`curl -X POST http://orbital-pool-api.onrender.com/liquidity/add \\
   -H "Content-Type: application/json" \\
   -d '{
     "k_value": 1000,
@@ -279,7 +279,7 @@ const ApiDocsPage = () => {
               method="POST"
               endpoint="/liquidity/remove"
               description="Remove liquidity from the pool."
-              example={`curl -X POST http://localhost:8000/liquidity/remove \\
+              example={`curl -X POST http://orbital-pool-api.onrender.com/liquidity/remove \\
   -H "Content-Type: application/json" \\
   -d '{
     "k_value": 1000,
@@ -292,7 +292,7 @@ const ApiDocsPage = () => {
               method="GET"
               endpoint="/gas-price"
               description="Get current gas price."
-              example="curl http://localhost:8000/gas-price"
+              example="curl http://orbital-pool-api.onrender.com/gas-price"
               response={`{
   "gas_price": "100000000",
   "gas_price_gwei": "0.1"
@@ -314,25 +314,25 @@ const ApiDocsPage = () => {
                 icon: Database, 
                 endpoint: '/analytics/stats', 
                 desc: 'Protocol statistics (TVL, volume, swaps)',
-                example: 'curl http://localhost:8000/analytics/stats'
+                example: 'curl http://orbital-pool-api.onrender.com/analytics/stats'
               },
               { 
                 icon: Activity, 
                 endpoint: '/analytics/swaps', 
                 desc: 'Recent swap transactions with pagination',
-                example: 'curl "http://localhost:8000/analytics/swaps?limit=5"'
+                example: 'curl "http://orbital-pool-api.onrender.com/analytics/swaps?limit=5"'
               },
               { 
                 icon: TrendingUp, 
                 endpoint: '/analytics/token/{id}', 
                 desc: 'Token-specific analytics and metrics',
-                example: 'curl http://localhost:8000/analytics/token/0'
+                example: 'curl http://orbital-pool-api.onrender.com/analytics/token/0'
               },
               { 
                 icon: Users, 
                 endpoint: '/analytics/user/{address}', 
                 desc: 'User trading statistics and history',
-                example: 'curl http://localhost:8000/analytics/user/0x...'
+                example: 'curl http://orbital-pool-api.onrender.com/analytics/user/0x...'
               }
             ].map((item, index) => (
               <Card key={index} className="bg-neutral-900/20 border-neutral-800">

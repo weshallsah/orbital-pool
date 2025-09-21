@@ -222,11 +222,11 @@ const UniteDefiLanding = () => {
                   <div>
                     <h3 className="text-lg font-semibold mb-4 text-white">Think of it like a restaurant menu</h3>
                     <p className="text-neutral-300 leading-relaxed mb-4">
-                      When you go to a restaurant, you don't walk into the kitchen to cook your own food. Instead, you look at the menu,
+                      When you go to a restaurant, you don&apos;t walk into the kitchen to cook your own food. Instead, you look at the menu,
                       tell the waiter what you want, and they bring it to you. An API works the same way.
                     </p>
                     <p className="text-neutral-300 leading-relaxed">
-                      Our API is like a digital menu for the Orbital AMM. You send us a request saying "I want to swap 100 tokens"
+                      Our API is like a digital menu for the Orbital AMM. You send us a request saying &quot;I want to swap 100 tokens&quot;
                       and we send back the exact instructions your app needs to make that happen.
                     </p>
                   </div>
@@ -267,7 +267,7 @@ const UniteDefiLanding = () => {
                   </div>
                   <h4 className="text-xl font-semibold mb-4 text-cyan-300">You Send a Request</h4>
                   <p className="text-neutral-300 leading-relaxed">
-                    Your app sends us a simple message like "I want to swap 100 MUSDC-A for MUSDC-B"
+                    Your app sends us a simple message like &quot;I want to swap 100 MUSDC-A for MUSDC-B&quot;
                     using a standard HTTP request (like visiting a website).
                   </p>
                 </CardContent>
@@ -280,7 +280,7 @@ const UniteDefiLanding = () => {
                   </div>
                   <h4 className="text-xl font-semibold mb-4 text-cyan-300">We Do the Math</h4>
                   <p className="text-neutral-300 leading-relaxed">
-                    Our servers calculate the exact amount you'll receive using our spherical invariant formula,
+                    Our servers calculate the exact amount you&apos;ll receive using our spherical invariant formula,
                     check gas prices, and prepare the transaction data.
                   </p>
                 </CardContent>

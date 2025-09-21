@@ -93,7 +93,7 @@ const DocumentationPage = () => {
                 </div>
                 <div>
                   <h3 className="text-2xl font-semibold">Core Protocol Documentation</h3>
-                  <p className="text-neutral-400">Learn about Orbital's revolutionary spherical AMM design</p>
+                  <p className="text-neutral-400">Learn about Orbital&apos;s revolutionary spherical AMM design</p>
                 </div>
               </div>
               <div className="flex items-center text-blue-400 text-sm group-hover:text-cyan-300 transition-colors">
@@ -139,7 +139,7 @@ const DocumentationPage = () => {
               <div>
                 <h3 className="text-2xl font-semibold mb-4 text-blue-400">Orbital Protocol Overview</h3>
                 <p className="text-neutral-300 leading-relaxed mb-6">
-                  Orbital is an innovative Automated Market Maker (AMM), an implementation based on the Paradigm's whitepaper, that transforms stablecoin trading by incorporating a torus-based invariant at the core of its mechanism. While other AMMs use constant product or similar formulas, Orbital positions token reserves as vectors along an n-dimensional space to allow for exact and effective price discovery. This method enables concentrated liquidity customization across pools of stablecoins, with liquidity centered around the $1 equal price point. By coming to a set of tick boundaries as orbits around this middle point, Orbital provides greater capital efficiency and flexibility to liquidity providers and a new benchmark in decentralized finance.
+                  Orbital is an innovative Automated Market Maker (AMM), an implementation based on the Paradigm&apos;s whitepaper, that transforms stablecoin trading by incorporating a torus-based invariant at the core of its mechanism. While other AMMs use constant product or similar formulas, Orbital positions token reserves as vectors along an n-dimensional space to allow for exact and effective price discovery. This method enables concentrated liquidity customization across pools of stablecoins, with liquidity centered around the $1 equal price point. By coming to a set of tick boundaries as orbits around this middle point, Orbital provides greater capital efficiency and flexibility to liquidity providers and a new benchmark in decentralized finance.
                 </p>
 
                 <div className="bg-neutral-800/30 border border-blue-500/30 rounded-lg p-6">
@@ -170,7 +170,7 @@ const DocumentationPage = () => {
                     <div className="space-y-2">
                       <div className="flex items-center text-sm">
                         <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>
-                        <span className="text-neutral-300">Newton's method for numerical stability</span>
+                        <span className="text-neutral-300">Newton&apos;s method for numerical stability</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <span className="w-2 h-2 bg-cyan-400 rounded-full mr-3"></span>

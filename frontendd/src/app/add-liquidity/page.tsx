@@ -96,7 +96,7 @@ const OrbitalLiquidityPage = () => {
         address: ORBITAL_POOL_ADDRESS,
         abi: ORBITAL_POOL_ABI,
         functionName: 'addLiquidity',
-        args: [kValue, amountsInWei as [bigint, bigint, bigint, bigint, bigint]],
+        args: [kValue, amountsAdjusted as [bigint, bigint, bigint, bigint, bigint]],
       });
 
     } catch (error) {
@@ -140,8 +140,8 @@ const OrbitalLiquidityPage = () => {
             <button
               onClick={() => setLiquidityState(prev => ({ ...prev, mode: 'add' }))}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${liquidityState.mode === 'add'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-neutral-400 hover:text-white'
+                ? 'bg-blue-500 text-white'
+                : 'text-neutral-400 hover:text-white'
                 }`}
             >
               Add Liquidity
@@ -149,8 +149,8 @@ const OrbitalLiquidityPage = () => {
             <button
               onClick={() => setLiquidityState(prev => ({ ...prev, mode: 'remove' }))}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${liquidityState.mode === 'remove'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-neutral-400 hover:text-white'
+                ? 'bg-blue-500 text-white'
+                : 'text-neutral-400 hover:text-white'
                 }`}
             >
               Remove Liquidity
@@ -231,7 +231,7 @@ const OrbitalLiquidityPage = () => {
                 className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
               >
                 {!isConnected ? 'Connect Wallet' :
-                  isProcessing ? 
+                  isProcessing ?
                     (isPending ? 'Confirming...' : 'Processing Transaction...') :
                     !hasAmounts ? 'Enter Amount' :
                       !hasTolerance ? 'Enter Tolerance' :

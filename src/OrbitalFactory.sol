@@ -55,19 +55,7 @@ contract OrbitalFactory {
             require(address(tokens[i]) != address(0), "Invalid token address");
         }
 
-        // Create new pool
-        bytes memory bytecode = abi.encodePacked(
-            type(OrbitalPool).creationCode,
-            abi.encode(tokens, MATH_HELPER_ADDRESS)
-        );
-
-        bytes32 salt = keccak256(
-            abi.encodePacked(tokens, msg.sender, block.timestamp, block.number)
-        );
-
-        assembly {
-            pool := create2(0, add(bytecode, 0x20), mload(bytecode), salt)
-        }
+        pool = address(new OrbitalPool(tokens, MATH_HELPER_ADDRESS));
 
         require(pool != address(0), "Pool creation failed");
 

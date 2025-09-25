@@ -25,7 +25,7 @@ const useSwap = () => {
       return Promise.resolve({ 
         success: true, 
         transaction_data: { 
-          to: '0x83EC719A6F504583d0F88CEd111cB8e8c0956431',
+          to: '0x3B02fF1e626Ed7a8fd6eC5299e2C54e1421B626B',
           data: '0x',
           gas: 200000,
           gasPrice: '100000000',
@@ -44,9 +44,9 @@ const OrbitalSwapPage = () => {
   
   // Real stablecoin tokens
   const staticTokens = [
-    { index: 0, symbol: 'USDC', address: '0x9666526dcF585863f9ef52D76718d810EE77FB8D' },
-    { index: 1, symbol: 'USDT', address: '0x1921d350666BA0Cf9309D4DA6a033EE0f0a70bEC' },
-    { index: 2, symbol: 'DAI', address: '0x...' },
+    { index: 0, symbol: 'USDC', address: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' },
+    { index: 1, symbol: 'USDT', address: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9' },
+    { index: 2, symbol: 'DAI', address: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9' },
     { index: 3, symbol: 'FRAX', address: '0x...' },
     { index: 4, symbol: 'LUSD', address: '0x...' }
   ];
@@ -237,7 +237,7 @@ const OrbitalSwapPage = () => {
 
           {/* Pool Info */}
           <div className="mt-6 text-center text-sm text-neutral-500">
-            <p>Pool Address: 0x83EC719A6F504583d0F88CEd111cB8e8c0956431</p>
+            <p>Pool Address: 0x3B02fF1e626Ed7a8fd6eC5299e2C54e1421B626B</p>
             <p>Network: Arbitrum Sepolia</p>
           </div>
         </div>

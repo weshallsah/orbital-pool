@@ -32,7 +32,7 @@ const ApiDocsPage = () => {
         <span className="text-xs text-neutral-400 font-mono">{language}</span>
         <button
           onClick={() => copyToClipboard(code, id)}
-          className="flex items-center space-x-1 text-xs text-neutral-400 hover:text-blue-400 transition-colors"
+          className="flex items-center space-x-1 text-xs text-neujtral-400 hover:text-blue-400 transition-colors"
         >
           {copiedCode === id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
           <span>{copiedCode === id ? 'Copied' : 'Copy'}</span>
@@ -184,7 +184,7 @@ const ApiDocsPage = () => {
               example="curl http://orbital-pool-api.onrender.com/health"
               response={`{
   "status": "healthy",
-  "pool_address": "0x83EC719A6F504583d0F88CEd111cB8e8c0956431",
+  "pool_address": "0x3B02fF1e626Ed7a8fd6eC5299e2C54e1421B626B",
   "network": "Arbitrum Sepolia",
   "chain_id": 421614
 }`}
@@ -198,18 +198,18 @@ const ApiDocsPage = () => {
               response={`{
   "tokens": {
     "0": {
-      "address": "0x9666526dcF585863f9ef52D76718d810EE77FB8D",
+      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
       "symbol": "MUSDC-A"
     },
     "1": {
-      "address": "0x1921d350666BA0Cf9309D4DA6a033EE0f0a70bEC",
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       "symbol": "MUSDC-B"
     },
     "2": { "address": "0x...", "symbol": "MUSDC-C" },
     "3": { "address": "0x...", "symbol": "MUSDC-D" },
     "4": { "address": "0x...", "symbol": "MUSDC-E" }
   },
-  "pool_address": "0x83EC719A6F504583d0F88CEd111cB8e8c0956431"
+  "pool_address": "0x3B02fF1e626Ed7a8fd6eC5299e2C54e1421B626B"
 }`}
             />
 
@@ -229,11 +229,11 @@ const ApiDocsPage = () => {
               response={`{
   "success": true,
   "transaction_data": {
-    "to": "0x83EC719A6F504583d0F88CEd111cB8e8c0956431",
+    "to": "0x3B02fF1e626Ed7a8fd6eC5299e2C54e1421B626B",
     "data": "0x5673b02d...",
     "gas": 300000,
     "gasPrice": "100000000",
-    "chainId": 421614,
+    "chainId": 31337,
     "value": 0,
     "nonce": 0,
     "from": "0xYourAddress"
